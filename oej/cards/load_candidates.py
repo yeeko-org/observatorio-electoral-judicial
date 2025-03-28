@@ -1,6 +1,8 @@
 import json
 import os
-from oej.models import Position, Power, Seat, Candidate, Body
+import re
+from oej.models import Position, Seat, Candidate
+from geo.models import Body, Power
 
 
 class LoadCandidates:
@@ -111,6 +113,7 @@ class LoadCandidates:
             print(f"Unexpected error loading from {filename}: {e}")
 
     def save_candidates(self):
+        from oej.cards.examples import get_find_names
         candidates = []
         for record in self.data:
             powers = record.get("Poder", "").strip()
@@ -131,10 +134,14 @@ class LoadCandidates:
                 seat = seats.get(circunscription=record["page"])
             else:
                 seat = seats.first()
+            first_name = record["Nombre(s)"]
+            final_names = get_find_names(first_name)
+
             candidate = Candidate.objects.create(
-                first_name=record["Nombre(s)"],
+                first_name=first_name,
                 last_name_1=record["Apellido paterno"],
                 last_name_2=record["Apellido materno"],
+                find_names=final_names,
                 sex=final_sex,
                 seat=seat,
             )
@@ -168,3 +175,28 @@ def main():
         extractor.read_from_json(output_json, name)
         extractor.save_candidates()
 
+
+def init_load():
+    extractor = LoadCandidates()
+    extractor.load_base_data()
+
+
+# def post_load():
+#     import re
+#     all_candidates = Candidate.objects.filter(first_name__contains=" ")
+#     print(f"Updating {all_candidates.count()} candidates")
+#     for candidate in all_candidates:
+#         find_names = candidate.first_name.split(" ")
+#         final_names = []
+#         for name in find_names:
+#             clean_name = re.sub(r"[^a-zA-Z]", "", name)
+#             if clean_name in ["MA", "M"]:
+#                 clean_name = "MARIA"
+#             elif len(clean_name) <= 2:
+#                 continue
+#             elif clean_name in ["DEL", "LOS"]:
+#                 continue
+#             final_names.append(clean_name)
+#         candidate.find_names = find_names
+#         candidate.save()
+#

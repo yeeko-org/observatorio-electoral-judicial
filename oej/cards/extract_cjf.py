@@ -165,10 +165,13 @@ def extract_historic():
     from django.utils import timezone
     from random import randint
     pending_bios = Biography.objects.filter(
-        recover_timestamp__isnull=False, html_content__isnull=True)
+        recover_timestamp__isnull=False, html_content__isnull=True)\
+        .order_by('-recover_timestamp')
     print(f"Starting at {timezone.now()}")
+    time.sleep(320)
     start_time = timezone.now()
-    for (idx, bio) in enumerate(pending_bios[:100]):
+    # for (idx, bio) in enumerate(pending_bios[:100]):
+    for (idx, bio) in enumerate(pending_bios):
         if idx % 5 == 0:
             print(f"...Processing biography {idx + 1} to {idx + 5}")
         try:
@@ -176,10 +179,11 @@ def extract_historic():
             biography = extractor.save_to_model()
         except Exception as e:
             print(f"Error processing biography {bio.exp}: {e}")
-        if (idx + 1) % 10 == 0:
-            time.sleep(randint(10,20))
-        else:
-            time.sleep(randint(1,2))
+            time.sleep(320)
+        if idx % 15 == 0:
+            time.sleep(60)
+        time.sleep(randint(5, 8))
+
     end_time = timezone.now()
     duration = end_time - start_time
     print(f"Finished at {timezone.now()} in {duration}")

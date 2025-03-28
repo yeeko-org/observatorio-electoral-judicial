@@ -2,6 +2,21 @@ from django.db import models
 from django.db.models import JSONField
 
 
+class Circunscription(models.Model):
+
+    name = models.CharField(max_length=255)
+    number = models.IntegerField()
+    city = models.CharField(max_length=255, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.name} - {self.number} - {self.city}"
+
+    class Meta:
+        verbose_name = 'Circunscripción'
+        verbose_name_plural = 'Circunscripciones'
+        db_table = "oej_circunscription"
+
+
 class State(models.Model):
 
     inegi_code = models.CharField(max_length=2, verbose_name=u"Clave INEGI")
@@ -18,6 +33,9 @@ class State(models.Model):
         default=list,
         verbose_name="Lista nombres alternativos",
         help_text="Ocupar para OCAMIS")
+    circunscription = models.ForeignKey(
+        Circunscription, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='states')
 
     def __str__(self):
         return self.short_name or self.name
@@ -57,3 +75,35 @@ class Municipality(models.Model):
         verbose_name = "Municipio"
         verbose_name_plural = "Municipios"
         ordering = ["inegi_code"]
+
+
+class Body(models.Model):
+
+    name = models.CharField(max_length=255)
+    short_name = models.CharField(max_length=40, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.short_name or self.name
+
+    class Meta:
+        verbose_name = 'Órgano'
+        verbose_name_plural = 'Órganos'
+        db_table = "oej_body"
+
+
+class Power(models.Model):
+    key_name = models.CharField(max_length=2, primary_key=True)
+    name = models.CharField(max_length=90)
+    description = models.TextField(blank=True, null=True)
+    icon = models.FileField(
+        upload_to='oej_icons', max_length=255, blank=True, null=True)
+    color = models.CharField(max_length=80, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Poder'
+        verbose_name_plural = 'Poderes'
+        db_table = "oej_power"

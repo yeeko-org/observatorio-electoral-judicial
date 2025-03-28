@@ -4,6 +4,7 @@ import json
 import time
 import logging
 from urllib.parse import urljoin
+from oej.models import ProfessionalLicense, Candidate
 
 
 class CedulaProfesionalFinder:
@@ -12,7 +13,11 @@ class CedulaProfesionalFinder:
     using the Registro Nacional de Profesionistas website.
     """
 
-    def __init__(self, base_url="https://www.cedulaprofesional.sep.gob.mx/cedula/"):
+    def __init__(
+            self,
+            base_url="https://www.cedulaprofesional.sep.gob.mx/cedula/",
+            candidate: Candidate | None = None
+    ):
         """
         Initialize the finder with the base URL of the search page.
 
@@ -34,6 +39,7 @@ class CedulaProfesionalFinder:
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Dest": "empty"
         }
+        self.candidate: Candidate | None = candidate
         self.logger = self._setup_logger()
 
     def _setup_logger(self):
@@ -71,44 +77,72 @@ class CedulaProfesionalFinder:
             self.logger.error(f"Error accessing search page: {e}")
             return None
 
-    def search_by_name(self, first_name, first_last_name, second_last_name=""):
+    def search_by_name(self, candidate: Candidate):
         """
         Search for a professional license by name.
 
         Args:
-            first_name: First name of the person
-            first_last_name: First last name of the person
-            second_last_name: Second last name of the person (optional)
-
-        Returns:
-            A dictionary with the search results or error message
+            candidate: A Candidate object with the first name and last names
+            of the person.
         """
-        # Get the search page first to set up cookies and session
+        self.candidate = candidate
         search_page = self._get_search_page()
         if not search_page:
             return { "success": False, "error": "Failed to access search page" }
 
         # Prepare the search data in the format expected by the server
-        search_json = {
-            "maxResult": "1000",
-            "nombre": first_name.upper(),
-            "paterno": first_last_name.upper(),
-            "materno": second_last_name.upper() if second_last_name else "",
-            "idCedula": ""
-        }
+        second = candidate.last_name_2.upper() if candidate.last_name_2 else ""
+        find_names = candidate.find_names
+        all_licences = []
+        unique_ids = set()
+        some_is_exact = False
+        for first_name in find_names:
+            search_json = {
+                "maxResult": "1000",
+                "nombre": first_name.upper(),
+                "paterno": candidate.last_name_1.upper(),
+                "materno": second,
+                "idCedula": ""
+            }
 
-        # Format data as expected by the server (json parameter with JSON string value)
-        search_data = {
-            "json": json.dumps(search_json)
-        }
+            # Format data as expected by the server (json parameter with JSON string value)
+            search_data = {
+                "json": json.dumps(search_json)
+            }
 
-        # Log the exact payload being sent
-        self.logger.info(f"Search payload: {search_data}")
+            # Log the exact payload being sent
+            self.logger.info(f"Search payload: {search_data}")
 
-        # The search endpoint
-        search_endpoint = urljoin(self.base_url, "buscaCedulaJson.action")
+            # The search endpoint
+            search_endpoint = urljoin(self.base_url, "buscaCedulaJson.action")
 
-        return self._try_search_endpoint(search_endpoint, search_data)
+            new_licences = self._try_search_endpoint(search_endpoint, search_data)
+
+            if not new_licences:
+                self.logger.error(f"No licenses found for {candidate}")
+                return
+            for licence in new_licences:
+                if licence["id_licence"] in unique_ids:
+                    continue
+                unique_ids.add(licence["id_licence"])
+                licence["candidate"] = candidate
+                other_data = licence.get("other_data", {})
+                name = other_data.get("nombre", "")
+                # licence["is_exact"] = name == candidate.first_name
+                is_exact = name == candidate.first_name
+                licence["is_exact"] = is_exact
+                if is_exact:
+                    some_is_exact = True
+                all_licences.append(licence)
+            time.sleep(1)
+        if some_is_exact:
+            all_licences = [licence for licence in all_licences
+                            if licence["is_exact"]]
+
+        ProfessionalLicense.objects.bulk_create(
+            [ProfessionalLicense(**licence) for licence in all_licences]
+        )
+        self.logger.info(f"Found {len(all_licences)} licenses for {candidate}")
 
     def _try_search_endpoint(self, endpoint, data):
         """Try to search using the given endpoint"""
@@ -122,16 +156,15 @@ class CedulaProfesionalFinder:
                 timeout=15
             )
 
-            self.logger.info(f"Response status: {response.status_code}")
-            self.logger.info(f"Response headers: {response.headers}")
-
+            # self.logger.info(f"Response status: {response.status_code}")
+            # self.logger.info(f"Response headers: {response.headers}")
             # When debugging, output the first part of the response content
-            content_snippet = response.text[:500]
-            self.logger.info(f"Response content (first 500 chars): {content_snippet}")
+            # content_snippet = response.text[:500]
+            # self.logger.info(f"Response content (first 500 chars): {content_snippet}")
 
             if response.status_code != 200:
                 self.logger.error(f"Search request failed: HTTP {response.status_code}")
-                return { "success": False, "error": f"HTTP error {response.status_code}" }
+                return []
 
             # Try to parse as JSON first
             try:
@@ -144,11 +177,11 @@ class CedulaProfesionalFinder:
 
         except requests.exceptions.RequestException as e:
             self.logger.error(f"Request error: {e}")
-            return { "success": False, "error": str(e) }
+            return []
 
     def _parse_json_results(self, json_data):
         """Parse JSON results from the API"""
-        self.logger.info(f"Parsing JSON response: {json_data}")
+        # self.logger.info(f"Parsing JSON response: {json_data}")
 
         licenses = []
 
@@ -160,23 +193,27 @@ class CedulaProfesionalFinder:
 
         if not items:
             self.logger.warning("No items found in JSON response")
-            return { "success": True, "results": [] }
+            return []
 
         for item in items:
-            license_info = {
-                'id_cedula': item.get('idCedula'),
+            other_data = {
                 'nombre': item.get('nombre'),
                 'paterno': item.get('paterno'),
                 'materno': item.get('materno'),
                 'genero': item.get('sexo'),
-                'profesion': item.get('titulo'),
-                'anio_expedicion': item.get('anioreg'),
-                'institucion': item.get('desins'),
-                'tipo': item.get('tipo')
             }
+            title = item.get('titulo')
+            license_info = {
+                'id_licence': item.get('idCedula'),
+                'year': item.get('anioreg'),
+                'institution': item.get('desins'),
+                'licence_type': item.get('tipo'),
+                'other_data': other_data
+            }
+            license_info = self.add_title(license_info, title)
             licenses.append(license_info)
 
-        return { "success": True, "results": licenses }
+        return licenses
 
     def _parse_html_results(self, html_content):
         """Parse HTML response to extract license information"""
@@ -189,29 +226,8 @@ class CedulaProfesionalFinder:
         error_div = soup.find('div', class_='alert-danger')
         if error_div and error_div.get_text():
             error_msg = error_div.get_text().strip()
-            return { "success": False, "error": error_msg }
-
-        # Try to find results in detail sections
-        id_cedula = soup.find(id='detalleCedula')
-        nombre = soup.find(id='detalleNombre')
-        genero = soup.find(id='detalleGenero')
-        profesion = soup.find(id='detalleProfesion')
-        fecha = soup.find(id='detalleFecha')
-        institucion = soup.find(id='detalleInstitucion')
-        tipo = soup.find(id='detalleTipo')
-
-        if id_cedula and nombre:
-            nombre_text = nombre.get_text().strip()
-            license_info = {
-                'id_cedula': id_cedula.get_text().strip(),
-                'nombre': nombre_text,
-                'genero': genero.get_text().strip() if genero else "",
-                'profesion': profesion.get_text().strip() if profesion else "",
-                'anio_expedicion': fecha.get_text().strip() if fecha else "",
-                'institucion': institucion.get_text().strip() if institucion else "",
-                'tipo': tipo.get_text().strip() if tipo else ""
-            }
-            licenses.append(license_info)
+            self.logger.error(f"Error message: {error_msg}")
+            return []
 
         # Look for grid content if detail view isn't available
         grid_container = soup.find(id='cedulasGrid')
@@ -221,96 +237,59 @@ class CedulaProfesionalFinder:
             for row in rows[1:]:  # Skip header row
                 cells = row.find_all('td')
                 if len(cells) >= 9:
-                    license_info = {
-                        'id_cedula': cells[0].get_text().strip(),
-                        'nombre': cells[1].get_text().strip(),
+                    other_data = {
+                        "nombre": cells[1].get_text().strip(),
                         'paterno': cells[2].get_text().strip(),
                         'materno': cells[3].get_text().strip(),
-                        'genero': cells[4].get_text().strip(),
-                        'profesion': cells[5].get_text().strip(),
-                        'anio_expedicion': cells[6].get_text().strip(),
-                        'institucion': cells[7].get_text().strip(),
-                        'tipo': cells[8].get_text().strip()
+                        "genero": cells[4].get_text().strip(),
                     }
+                    title = cells[5].get_text().strip()
+                    license_info = {
+                        'id_licence': cells[0].get_text().strip(),
+                        'year': cells[6].get_text().strip(),
+                        'institution': cells[7].get_text().strip(),
+                        'licence_type': cells[8].get_text().strip(),
+                        'other_data': other_data
+                    }
+                    license_info = self.add_title(license_info, title)
                     licenses.append(license_info)
 
-        return { "success": True, "results": licenses } if licenses else { "success": True, "results": [] }
+        return licenses
 
-    def get_bulk_results(self, people_list):
-        """
-        Process a list of people and get their license information.
+    def add_title(self, licence_info, title):
+        """Add title components to the license information"""
+        inits = ["COMO", "EN", "DE"]
+        for init in inits:
+            if f" {init} " in title:
+                level, career = title.split(f" {init} ", 1)
+                licence_info["level"] = level
+                licence_info["career"] = career
+                break
+        licence_info["title"] = title
+        return licence_info
 
-        Args:
-            people_list: A list of dictionaries containing 'first_name',
-                       'first_last_name', and optionally 'second_last_name'
+    def get_bulk_results(self, candidates):
+        self.logger.info(f"Processing bulk search for "
+                         f"{candidates.count()} people")
 
-        Returns:
-            A list of dictionaries with results for each person
-        """
-        self.logger.info(f"Processing bulk search for {len(people_list)} people")
-        results = []
-
-        for i, person in enumerate(people_list):
-            self.logger.info(f"Processing person {i + 1}/{len(people_list)}")
-
-            # Add a small delay between requests to avoid overloading the server
-            if i > 0:
-                time.sleep(2.5)
-
-            first_name = person.get('first_name', '')
-            first_last_name = person.get('first_last_name', '')
-            second_last_name = person.get('second_last_name', '')
-
-            license_info = self.search_by_name(
-                first_name,
-                first_last_name,
-                second_last_name
-            )
-
-            results.append({
-                'person': person,
-                'license_info': license_info
-            })
-
-        return results
+        for candidate in candidates:
+            self.search_by_name(candidate)
 
 
-def main():
-    # Create an instance of the finder
+def search_candidates():
+    candidates = Candidate.objects.filter(licenses__isnull=True)\
+        .distinct()
     finder = CedulaProfesionalFinder()
-
-    # Search for a single person
-    result = finder.search_by_name(
-        first_name="IXEL",
-        first_last_name="MENDOZA",
-        second_last_name="ARAGON"
-    )
-
-    print(json.dumps(result, indent=2, ensure_ascii=False))
-
-    # You can uncomment this to test bulk search
-    """
-    # Bulk search for multiple people
-    people = [
-        {
-            'first_name': 'MARIA',
-            'first_last_name': 'LOPEZ',
-            'second_last_name': 'GARCIA'
-        },
-        {
-            'first_name': 'CARLOS',
-            'first_last_name': 'MARTINEZ',
-            'second_last_name': 'HERNANDEZ'
-        }
-    ]
-
-    bulk_results = finder.get_bulk_results(people)
-    for result in bulk_results:
-        print(f"Person: {result['person']}")
-        print(f"License info: {result['license_info']}")
-        print("-" * 50)
-    """
+    finder.get_bulk_results(candidates)
 
 
-if __name__ == "__main__":
-    main()
+def update_titles():
+    # licenses = ProfessionalLicense.objects.filter(career__isnull=True)
+    licenses = ProfessionalLicense.objects.all()
+    finder = CedulaProfesionalFinder()
+    for license in licenses:
+        title = license.title
+        licence_info = finder.add_title({}, title)
+        license.career = licence_info.get("career")
+        license.level = licence_info.get("level")
+        license.save()

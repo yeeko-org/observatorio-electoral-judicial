@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Tuple
 
 
-def text_normalizer(text, to_headers=False) -> str:
+def text_normalizer_old(text, to_headers=False) -> str:
     import re
     import unidecode
     if not text:
@@ -17,3 +17,17 @@ def text_normalizer(text, to_headers=False) -> str:
     final_text = re.sub(r'[^A-Z0-9]', '', final_text)
     final_text = final_text.strip()
     return final_text
+
+
+
+def text_normalizer(text):
+    import unidecode
+    import re
+    if not text:
+        return text
+    text = text.upper().strip()
+    text = unidecode.unidecode(text)
+    final_text = text.replace('Ü', 'U')
+    final_text = re.sub(r' +', ' ', final_text)
+    final_text = final_text.strip()
+    return re.sub(r'[^a-zA-Z\s]', '', final_text)

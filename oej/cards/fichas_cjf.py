@@ -5,6 +5,7 @@ import re
 import urllib.parse
 import time
 import urllib3
+from oej.models import Candidate, Biography
 
 
 class URLExtractor:
@@ -152,7 +153,6 @@ if __name__ == "__main__":
 
 
 def save_in_model():
-    from oej.models import Biography
     initial_url = ("https://w3.cjf.gob.mx/sevie_page/busquedas/Consultas"
                    "/botones.asp?exp=75315&rutaFichas=FichasJueMag")
     extractor = URLExtractor(initial_url)
@@ -161,6 +161,70 @@ def save_in_model():
     Biography.objects.bulk_create(
         [Biography(exp=record['exp']) for record in extractor.records]
     )
+
+
+
+class FindBiography:
+
+    def __init__(self):
+        self.candidate: Candidate | None = None
+
+    def _build_normalized(self, only_last_name=False):
+        fields = ["last_name_1", "last_name_2"]
+        if not only_last_name:
+            fields.append("first_name")
+        full_name = " ".join(
+            getattr(self.candidate, f"{field}_normalized") for field in fields)
+        return full_name.strip()
+
+    def find_candidates(self):
+        remain_candidates = Candidate.objects.filter(biography__isnull=True)
+        for candidate in remain_candidates:
+            self.candidate = candidate
+            self.find_biographies()
+
+    def find_biographies(self):
+        from oej.cards.examples import get_find_names
+        full_name = self._build_normalized()
+        biographies = Biography.objects.filter(
+            full_name_normalized=full_name)
+        if self._save_unique_biography(biographies):
+            return
+        last_name = self._build_normalized(only_last_name=True)
+        biographies = Biography.objects.filter(
+            full_name_normalized__startswith=last_name)
+        valid_biographies = []
+        for biography in biographies:
+            first_name = biography.full_name_normalized.replace(
+                last_name, "").strip()
+            bio_first_names = get_find_names(first_name)
+            bio_first_names = set(bio_first_names)
+            cand_first_names = get_find_names(
+                self.candidate.first_name_normalized)
+            cand_first_names = set(cand_first_names)
+            has_common = bio_first_names.intersection(cand_first_names)
+            if has_common:
+                valid_biographies.append(biography)
+        if self._save_unique_biography(valid_biographies):
+            return
+        print(f"No biography found for {full_name}")
+
+    def _save_unique_biography(self, biographies, name_type="full_name"):
+        if not biographies:
+            return False
+        if len(biographies) == 1:
+            biography = biographies[0]
+            self.candidate.biography = biography
+            self.candidate.save()
+            return True
+        elif len(biographies) > 1:
+            print(f"Multiple biographies found ({name_type}) for {str(self.candidate)}")
+            return True
+        return False
+
+def main_biographies():
+    finder = FindBiography()
+    finder.find_candidates()
 
 
 def storage_sites():

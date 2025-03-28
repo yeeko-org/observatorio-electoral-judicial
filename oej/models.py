@@ -1,11 +1,14 @@
 from django.db import models
-from geo.models import State
+from geo.models import State, Body, Power
+from utils.common import text_normalizer
 
 
 class Biography(models.Model):
 
     exp = models.CharField(max_length=80)
     full_name = models.CharField(max_length=255, blank=True, null=True)
+    full_name_normalized = models.CharField(
+        max_length=255, blank=True, null=True)
     html_content = models.TextField(blank=True, null=True)
     curriculum = models.TextField(blank=True, null=True)
     ruta = models.CharField(max_length=80, blank=True, null=True)
@@ -16,23 +19,14 @@ class Biography(models.Model):
     def __str__(self):
         return (self.full_name or 'Biografía sin nombre') + ' - ' + self.exp
 
+    def save(self, *args, **kwargs):
+        if not self.full_name_normalized:
+            self.full_name_normalized = text_normalizer(self.full_name)
+        super(Biography, self).save(*args, **kwargs)
+
     class Meta:
         verbose_name = 'Biografía'
         verbose_name_plural = 'Biografías'
-
-
-class Body(models.Model):
-
-    name = models.CharField(max_length=255)
-    short_name = models.CharField(max_length=40, blank=True, null=True)
-    description = models.TextField(blank=True, null=True)
-
-    def __str__(self):
-        return self.short_name or self.name
-
-    class Meta:
-        verbose_name = 'Órgano'
-        verbose_name_plural = 'Órganos'
 
 
 GROUP_CHOICES = [
@@ -81,6 +75,7 @@ class Position(models.Model):
     by_circuit = models.BooleanField(default=False)
     by_circunscription = models.BooleanField(
         default=False, verbose_name='Por circunscripción')
+    is_public = models.BooleanField(default=False)
 
     def __str__(self):
         return self.short_name or self.name
@@ -101,37 +96,6 @@ class Topic(models.Model):
     class Meta:
         verbose_name = 'Materia'
         verbose_name_plural = 'Materias'
-
-
-class Power(models.Model):
-    key_name = models.CharField(max_length=2, primary_key=True)
-    name = models.CharField(max_length=90)
-    description = models.TextField(blank=True, null=True)
-    icon = models.FileField(
-        upload_to='oej_icons', max_length=255, blank=True, null=True)
-    color = models.CharField(max_length=80, blank=True, null=True)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = 'Poder'
-        verbose_name_plural = 'Poderes'
-
-
-class ElectoralDistrict(models.Model):
-
-    name = models.CharField(max_length=255)
-    state = models.ForeignKey(
-        State, on_delete=models.CASCADE, related_name='electoral_districts')
-    circunscription = models.IntegerField()
-
-    def __str__(self):
-        return f"{self.name} - {self.state} - {self.circunscription}"
-
-    class Meta:
-        verbose_name = 'Distrito Electoral Judical'
-        verbose_name_plural = 'Distritos Electorales Judiciales'
 
 
 class Seat(models.Model):
@@ -166,18 +130,22 @@ class Candidate(models.Model):
         max_length=255, blank=True, null=True)
     last_name_2_normalized = models.CharField(
         max_length=255, blank=True, null=True)
+    alternative_names = models.JSONField(blank=True, null=True)
+    find_names = models.JSONField(blank=True, null=True)
     # full_name = models.CharField(max_length=255, blank=True, null=True)
-    # full_name_normalized = models.CharField(
-    #     max_length=255, blank=True, null=True)
+    full_name_normalized = models.CharField(
+        max_length=255, blank=True, null=True)
     seat = models.ForeignKey(
         Seat, on_delete=models.CASCADE, related_name='candidates')
-    powers = models.ManyToManyField(Power, related_name='candidates')
+    powers = models.ManyToManyField('geo.Power', related_name='candidates')
     biography = models.ForeignKey(
         Biography, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates')
     first_year = models.SmallIntegerField(blank=True, null=True)
     sex = models.CharField(
         max_length=10, choices=SEX_CHOICES, blank=True, null=True)
+    photo = models.FileField(
+        upload_to='candidates_photos/', max_length=255, blank=True, null=True)
     gemini_link = models.URLField(blank=True, null=True)
     gemini_text = models.TextField(blank=True, null=True)
     academic_ia = models.TextField(blank=True, null=True)
@@ -203,6 +171,19 @@ class Candidate(models.Model):
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_disentir')
 
+    def save(self, *args, **kwargs):
+        if not self.first_name_normalized:
+            self.first_name_normalized = text_normalizer(self.first_name)
+        if not self.last_name_1_normalized:
+            self.last_name_1_normalized = text_normalizer(self.last_name_1)
+        if not self.last_name_2_normalized:
+            self.last_name_2_normalized = text_normalizer(self.last_name_2)
+        if not self.full_name_normalized:
+            full_name = f"{self.first_name} {self.last_name_1} {self.last_name_2}"
+            full_name = full_name.strip()
+            self.full_name_normalized = text_normalizer(full_name)
+        super(Candidate, self).save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.first_name} {self.last_name_1}"
 
@@ -217,18 +198,23 @@ class ProfessionalLicense(models.Model):
         verbose_name='Número de Cédula Profesional')
     candidate = models.ForeignKey(
         Candidate, on_delete=models.CASCADE, related_name='licenses')
-    career = models.CharField(
+    title = models.CharField(
         max_length=255, blank=True, null=True,
-        verbose_name='Profesión')
+        verbose_name='Título completo')
+    level = models.CharField(
+        max_length=255, blank=True, null=True, verbose_name='Nivel')
+    career = models.CharField(
+        max_length=255, blank=True, null=True, verbose_name='Profesión')
     institution = models.CharField(max_length=255, blank=True, null=True)
     licence_type = models.CharField(max_length=255, blank=True, null=True)
     year = models.SmallIntegerField(
         blank=True, null=True, verbose_name='Año de expedición')
     other_data = models.JSONField(
         blank=True, null=True, verbose_name='Datos base')
+    is_exact = models.BooleanField(blank=True, null=True)
 
     def __str__(self):
-        return f"{self.id_licence or 'S/NUM'} - {self.career or 'Sin carrera'}"
+        return f"{self.id_licence or 'S/NUM'} - {self.title or 'Sin carrera'}"
 
     class Meta:
         verbose_name = 'Licencia Profesional'

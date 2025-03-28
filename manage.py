@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
+from django.core.management.commands.runserver import Command as runserver
 import os
 import sys
 
+runserver.default_port = "8002"
 
 def main():
     """Run administrative tasks."""

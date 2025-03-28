@@ -1,9 +1,9 @@
 from django.contrib import admin
 
 from .models import (
-    Biography, Body, StatusControl, Position, Topic, Power, ElectoralDistrict,
-    Seat, Candidate, ProfessionalLicense
+    Biography, StatusControl, Position, Topic, Seat, Candidate, ProfessionalLicense
 )
+from geo.models import Body, Power
 
 
 @admin.register(Biography)
@@ -33,11 +33,6 @@ class TopicAdmin(admin.ModelAdmin):
 
 @admin.register(Power)
 class PowerAdmin(admin.ModelAdmin):
-    pass
-
-
-@admin.register(ElectoralDistrict)
-class ElectoralDistrictAdmin(admin.ModelAdmin):
     pass
 
 
