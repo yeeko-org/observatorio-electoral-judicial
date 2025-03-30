@@ -1,0 +1,84 @@
+%system%
+Ayúdame a estructurar la información conseguida sin resumir, ni sintetizar, incluyendo toda la información que el usuario proporciona sobre la persona candidata a la elección judicial.
+
+ Contemplan toda la información que te envía el usuario y regresa un json con la siguiente estructura:
+
+name: Nombre completo de la persona
+academic_ia: Formación académica (títulos, grados académicos, cursos, especialidades, maestrías, doctorados, etc.)
+academic_text: Experiencia Académica (Actividades como profesor, publicaciones, pertenencia al SNI)
+professional_text: Trayectoria y experiencia profesional
+more_info_text: Información Adicional (esta sección debe contemplar las controversias, escándalos, acusaciones de corrupción u otro delito, críticas públicas, posibles vínculos con grupos de poder, partidos políticos o crimen organizado).
+judgments: Juicios de valor. Omite los juicios de valor y las interpretaciones en el desarrollo de esos puntos pero Incluye eso en un párrafo distinto en este atributo.
+
+
+====
+%user%
+## Trayectoria Académica  
+
+Jazmín Bonilla García cuenta con una sólida formación en el ámbito jurídico, iniciando con su **licenciatura en Derecho por la Universidad Panamericana**, titulada el 11 de julio de 2007[1]. Complementó sus estudios con programas especializados en instituciones clave del sistema judicial mexicano, como el curso *"Perspectivas Contemporáneas del Cambio Constitucional"* en la **Escuela Federal de Formación Judicial** y *"Lógica y Argumentación Jurídica"* en el **Instituto de la Judicatura Federal**[1]. Actualmente, se encuentra en proceso de obtención del grado de **doctorado en Derecho** en la misma Universidad Panamericana, lo que refleja su compromiso con la actualización académica[12].  
+Su perfil académico incluye también participación en espacios de divulgación jurídica, como el programa *YaLoDijoLaCorte* de **Justicia TV**, donde analizó las facultades del Banco de México junto a otros expertos, destacando su capacidad para abordar temas técnicos con profundidad[10].  
+---
+## Trayectoria Profesional Completa  
+La carrera de Bonilla García se ha desarrollado íntegramente dentro del **Poder Judicial de la Federación (PJF)**, donde ha ocupado cargos clave:  
+1. **Oficial Judicial y Administrativa** en el Primer Tribunal Colegiado en Materia Administrativa del Primer Circuito[1].  
+2. **Secretaria de Juzgado de Distrito** en Guerrero y en el Centro Auxiliar de la Primera Región, roles que implicaron gestión de expedientes y apoyo directo a titulares de juzgados[1].  
+3. **Secretaria de Tribunal Colegiado** en Materia Administrativa, posición desde la cual contribuyó a la redacción de resoluciones y análisis jurisprudencial[1][9].  
+4. **Magistrada de Circuito** en la Ciudad de México, adscrita a la Ponencia del ministro Javier Laynez Potisek, donde participó en casos de alta complejidad constitucional[9].  
+Desde 2024, figura como **Secretaria de Acuerdos de la Segunda Sala de la SCJN**[2][4], responsabilidad que incluye la coordinación de listas de asuntos y la validación de resoluciones en materia administrativa y electoral. Entre los casos relevantes bajo su supervisión destacan recursos de reclamación contra acuerdos de la Presidencia de la Corte, como el **expediente 45/2024** sobre impedimentos de ministros[2].  
+Su trabajo en la judicatura ha estado acompañado de una **actividad docente** en el Instituto de la Judicatura Federal, impartiendo cursos sobre litigio estratégico y técnicas de impugnación en materia fiscal[1].  
+---
+## Posibles Conflictos de Interés y Señalamientos  
+La candidatura de Bonilla García ha sido señalada en medios por su **vinculación con figuras afines al gobierno de Morena**:  
+- Fue **seleccionada simultáneamente por los tres comités evaluadores** (Ejecutivo, Legislativo y Judicial) para la elección judicial, hecho inusual que generó críticas sobre la transparencia del proceso[3][9].  
+- Integra el grupo de **17 aspirantes con cargos previos en administraciones morenistas** o cercanía a personajes como Martí Batres y Arturo Zaldívar[3]. Organizaciones civiles han denunciado que este perfilamiento favorece la *"captura política de la Corte"*[5][13].  
+- El senador Gerardo Fernández Noroña cuestionó que su inclusión en la lista final se realizó sin cumplir plenamente los criterios de evaluación, bajo un esquema de **"pase directo"** considerado irregular[14].  
+Aunque no existen denuncias formales por corrupción, su nombramiento como magistrada en 2023 coincidió con la reforma judicial impulsada por el gobierno federal, lo que ha alimentado percepciones de **alineación con el proyecto político en curso**[13].  
+---
+## Información Relevante Sobre Estela Fuentes Jiménez  
+Estela Fuentes Jiménez, **Magistrada Presidenta del Tribunal de Justicia Administrativa de la CDMX**, es otra aspirante a la SCJN con un perfil polifacético:  
+### Trayectoria Profesional  
+- Inició como **Jueza Penal en el Estado de México** (1995-2012), destacándose en casos de delitos graves[11].  
+- En 2012, fue designada por Marcelo Ebrard como **Magistrada del Tribunal de lo Contencioso Administrativo**, cargo ratificado por la Asamblea Legislativa[11].  
+- Desde 2019 preside el Tribunal de Justicia Administrativa de la CDMX, donde impulsó la **especialización en responsabilidades de servidores públicos**[6][11].  
+### Controversias  
+- Su elección como presidenta del Tribunal en 2019 generó cuestionamientos por su **relación personal con Yasmín Esquivel Mossa** (ministra de la SCJN), a quien sustituyó y con quien compartió generación universitaria[7].  
+- Organizaciones como *México Evalúa* han señalado opacidad en su **declaración patrimonial**, al negarse a hacer públicos sus activos y pasivos[7].  
+### Posturas Públicas  
+En su participación en *Voces del Nuevo Poder Judicial* (programa de EL CEO), enfatizó:  
+- La necesidad de **simplificar trámites judiciales** para acercar la justicia a grupos vulnerables[6].  
+- Propuestas para **combatir la impunidad** mediante la profesionalización de jueces y el uso de tecnología en seguimiento de casos[6].  
+### Reconocimientos  
+- **Medalla por la Igualdad 2020** de la Asociación Mexicana de Juzgadoras[7].  
+- Presea **Tepantlato 2021** por su labor en justicia administrativa[7].  
+---
+## Análisis de Contexto y Exclusiones por Homonimia  
+La revisión de fuentes permitió descartar homónimos destacables:  
+- No se identificaron otras juristas con el nombre *Jazmín Bonilla García* en registros del PJF o directorios de abogados[1][8].  
+- Todos los casos citados corresponden a su rol en la SCJN y PJF, sin vinculación con actividades privadas o sectores ajenos al servicio público[9][12].  
+- En el caso de Estela Fuentes, se verificó que las menciones a su relación con Yasmín Esquivel corresponden a su trayectoria en la CDMX, sin confusiones con otras magistradas homónimas[7][11].  
+---
+## Declaraciones Públicas y Posturas Jurídicas  
+Bonilla García ha manifestado posiciones progresistas en temas de género:  
+- En su artículo *"El derecho de las mujeres y personas gestantes a decidir"* (2023), defendió la **despenalización del aborto** basándose en estándares internacionales de derechos humanos[1].  
+- En entrevista con *El Heraldo* (marzo 2025), destacó avances en **protección laboral para mujeres embarazadas**, citando jurisprudencia de la SCJN que prohíbe despidos por gravidez[12].  
+Sin embargo, evita pronunciarse abiertamente sobre temas polarizantes como la **reforma judicial de 2024**, limitándose a enfatizar la importancia de la "sensibilidad social" en los jueces[12].  
+---
+## Evaluación de Idoneidad  
+Organismos independientes han señalado aspectos críticos:  
+- **Fortalezas**: Experiencia técnica comprobada en materia administrativa y fiscal, respaldada por 18 años en el PJF[1][9].  
+- **Debilidades**: Percepción de falta de independencia por su vinculación con el actual gobierno, sumada a la ausencia de cargos en sectores no estatales que amplíen su perspectiva[3][13].  
+Medios como *Animal Político* y *La Jornada* destacan su nombre entre los **"candidatos del régimen"**, aunque sin presentar pruebas de actos irregulares en su desempeño[3][5].  
+--- 
+Este perfil sintetiza la información verificable disponible hasta marzo de 2025, contextualizando logros y controversias dentro del proceso de transformación del sistema judicial mexicano.
+
+====
+%assistant%
+
+{
+  "name": "Jazmín Bonilla García",
+  "academic_ia": "Licenciatura en Derecho por la Universidad Panamericana (titulada el 11 de julio de 2007).\nCursos especializados como 'Perspectivas Contemporáneas del Cambio Constitucional' en la Escuela Federal de Formación Judicial y 'Lógica y Argumentación Jurídica' en el Instituto de la Judicatura Federal.\nActualmente cursa un doctorado en Derecho en la Universidad Panamericana.",
+  "academic_text": "Docente en el Instituto de la Judicatura Federal, impartiendo cursos sobre litigio estratégico y técnicas de impugnación en materia fiscal.\nHa participado en espacios de divulgación jurídica, incluyendo el programa 'YaLoDijoLaCorte' en Justicia TV, abordando temas técnicos como las facultades del Banco de México.",
+  "professional_text": "Ha desarrollado su carrera íntegramente en el Poder Judicial de la Federación:\nOficial Judicial y Administrativa en el Primer Tribunal Colegiado en Materia Administrativa del Primer Circuito.\nSecretaria de Juzgado de Distrito en Guerrero y en el Centro Auxiliar de la Primera Región.\nSecretaria de Tribunal Colegiado en Materia Administrativa.\nMagistrada de Circuito en la Ciudad de México, adscrita a la Ponencia del ministro Javier Laynez Potisek.\nDesde 2024 es Secretaria de Acuerdos de la Segunda Sala de la Suprema Corte de Justicia de la Nación (SCJN), donde supervisa casos relevantes como el expediente 45/2024 sobre impedimentos de ministros.",
+  "more_info_text": "Su candidatura ha sido cuestionada públicamente por una supuesta cercanía con figuras vinculadas al actual gobierno federal (Morena), destacando su selección simultánea por los tres comités evaluadores (Ejecutivo, Legislativo y Judicial), lo cual generó críticas por falta de transparencia.\nForma parte del grupo de 17 aspirantes señalados por vínculos con personajes como Martí Batres y Arturo Zaldívar, situación que diversas organizaciones han interpretado como parte de una 'captura política' del Poder Judicial.\nEl senador Gerardo Fernández Noroña señaló públicamente irregularidades en su inclusión en la lista final de candidatos, sugiriendo un esquema de 'pase directo'.\nAunque no existen denuncias formales por corrupción, su nombramiento como magistrada coincidió con la reforma judicial impulsada por el gobierno actual, alimentando percepciones sobre su alineación política.",
+  "judgments": "Si bien Jazmín Bonilla García posee una sólida trayectoria profesional y técnica en materia administrativa y fiscal, diversas voces mediáticas y civiles cuestionan su independencia judicial debido a supuestos vínculos políticos con el gobierno federal actual. Aunque no hay evidencias concretas de irregularidades, su perfil es visto por algunos como alineado con intereses políticos específicos, lo cual genera dudas sobre su imparcialidad en potenciales decisiones judiciales."
+}

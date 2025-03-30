@@ -64,6 +64,7 @@ class StatusControl(models.Model):
 
 class Position(models.Model):
     name = models.CharField(max_length=255)
+    full_name = models.CharField(max_length=255, blank=True, null=True)
     short_name = models.CharField(max_length=40, blank=True, null=True)
     male_name = models.CharField(max_length=255, blank=True, null=True)
     female_name = models.CharField(max_length=255, blank=True, null=True)
@@ -132,7 +133,6 @@ class Candidate(models.Model):
         max_length=255, blank=True, null=True)
     alternative_names = models.JSONField(blank=True, null=True)
     find_names = models.JSONField(blank=True, null=True)
-    # full_name = models.CharField(max_length=255, blank=True, null=True)
     full_name_normalized = models.CharField(
         max_length=255, blank=True, null=True)
     seat = models.ForeignKey(
@@ -148,6 +148,9 @@ class Candidate(models.Model):
         upload_to='candidates_photos/', max_length=255, blank=True, null=True)
     gemini_link = models.URLField(blank=True, null=True)
     gemini_text = models.TextField(blank=True, null=True)
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True)
+    price_details = models.JSONField(blank=True, null=True)
     academic_ia = models.TextField(blank=True, null=True)
     academic_text = models.TextField(blank=True, null=True)
     professional_ia = models.TextField(blank=True, null=True)
@@ -155,21 +158,18 @@ class Candidate(models.Model):
     professional_summary = models.TextField(blank=True, null=True)
     more_info_ia = models.TextField(blank=True, null=True)
     more_info_text = models.TextField(blank=True, null=True)
-    more_info_summary = models.TextField(blank=True, null=True)
+    judgments = models.TextField(blank=True, null=True)
     comments = models.TextField(blank=True, null=True)
     attention_notes_ia = models.TextField(blank=True, null=True)
     sources = models.JSONField(blank=True, null=True)
     is_public = models.BooleanField(default=False)
 
-    status_practica = models.ForeignKey(
+    status_register = models.ForeignKey(
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_practica')
-    status_laboratorio = models.ForeignKey(
+    status_validation = models.ForeignKey(
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_laboratorio')
-    status_disentir = models.ForeignKey(
-        StatusControl, on_delete=models.CASCADE, blank=True, null=True,
-        related_name='candidates_disentir')
 
     def save(self, *args, **kwargs):
         if not self.first_name_normalized:
@@ -183,6 +183,16 @@ class Candidate(models.Model):
             full_name = full_name.strip()
             self.full_name_normalized = text_normalizer(full_name)
         super(Candidate, self).save(*args, **kwargs)
+
+    @property
+    def position(self):
+        pos = self.seat.position
+        sub_body = self.seat.position.sub_body or ''
+        if sub_body:
+            sub_body = f"de la {sub_body} "
+        gender_prefix = pos.female_name if self.sex == "Mujer" \
+            else pos.male_name
+        return f"{gender_prefix} {sub_body}{pos.name}"
 
     def __str__(self):
         return f"{self.first_name} {self.last_name_1}"

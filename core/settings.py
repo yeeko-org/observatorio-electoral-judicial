@@ -105,6 +105,7 @@ DATABASES = {
 SECRET_KEY = 'django-insecure-jb^cklnl%994ct#=^i5t8o-356cxwr56)@p-9fu)85_8jl5$93'
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+SONAR_API_KEY = os.getenv("SONAR_API_KEY")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 OPENAI_TOKENS_MAX_LENGTH = getenv_int("OPENAI_TOKENS_MAX_LENGTH", 128000)
 OPENAI_ENGINE = os.getenv("OPENAI_ENGINE", "gpt-4o")

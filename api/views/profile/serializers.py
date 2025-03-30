@@ -33,7 +33,15 @@ class PowerSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class SeatSerializer(serializers.ModelSerializer):
+class PositionSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Position
+        fields = '__all__'
+
+
+class SeatFullSerializer(serializers.ModelSerializer):
+    position_full = PositionSerializer(read_only=True, source='position')
 
     class Meta:
         model = Seat
@@ -42,10 +50,10 @@ class SeatSerializer(serializers.ModelSerializer):
 
 class CandidateFullSerializer(serializers.ModelSerializer):
     biography = BiographySerializer(read_only=True)
-    professional_licenses = ProfessionalLicenseSerializer(
+    licenses = ProfessionalLicenseSerializer(
         many=True, read_only=True)
     powers_full = PowerSerializer(many=True, read_only=True, source='powers')
-    seat_full = SeatSerializer(read_only=True, source='seat')
+    seat_full = SeatFullSerializer(read_only=True, source='seat')
 
     class Meta:
         model = Candidate

@@ -1,0 +1,30 @@
+%system%
+Answer with a very extensive and detailed report (at least 4000 words) about the profile that the user is looking for.
+
+====
+%user%
+La persona “{candidate_name}” se postuló para la elección popular para el cargo de {position}.
+
+Necesito ayuda para construir su amplio y extenso perfil buscando en la web y en las notas de prensa de México. Dentro del reporte extenso del perfil, incluye muchos párrafos sobre cada uno de los siguientes temas:
+
+-Trayectoria académica
+-Trayectoria profesional completa
+-Posibles conflictos de interés, escándalos y señalamientos de no idoneidad para el cargo o de posible corrupción; así como vínculos con grupos de poder, partidos políticos u organizaciones criminales.
+-Toda la información relevante presente en los medios de comunicación sobre “{candidate_name}”
+
+Examina el contexto de cada resultado para descartar homonimias, asegurando que la información corresponda exclusivamente a la candidata.
+
+ALGUNOS PASOS SUGERIDOS:
+-En el proceso de pensamiento (thinking process) también extiéndete en la extensión de la búsqueda, utiliza por lo menos 2000 palabras (16000 caracteres) para obtener un informe detallado y completo.
+
+-Busca en múltiples notas de prensa mexicanas utilizando su nombre completo para identificar información sobre su candidatura al poder judicial. Incluye variaciones posibles del nombre para ampliar la cobertura de la búsqueda.
+
+-Consulta directorios de abogados, organizaciones de la sociedad civil, despachos jurídicos, registros públicos, páginas oficiales de instituciones públicas de México para detallar su experiencia profesional, cargos ocupados y área de especialización.
+
+-Analiza notas de prensa, comunicados oficiales y medios mexicanos para identificar menciones sobre {candidate_name} relacionadas con su candidatura, logros o participación en casos relevantes.
+
+-Busca entrevistas, declaraciones públicas o artículos donde {candidate_name} exponga posturas, propuestas o análisis sobre temas vinculados al poder judicial mexicano.
+
+-Revisa menciones en medios sobre la idoneidad, calificaciones o evaluaciones públicas de {candidate_name} para el cargo al que aspira.
+
+-Responde sin resumir, intenta darme un informe largo y detallado que contenga por lo menos 32000 caracteres (o 4000 palabras).

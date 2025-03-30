@@ -1,12 +1,14 @@
 from django.urls import include, path
 
-# from api.views.profile import NoteViewSet, NoteFileViewSet
+from api.views.profile import CandidateViewSet, ProfessionalLicenseViewSet
 from api.views.auth.login_views import UserLoginAPIView
 from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 
-# router.register(r'note', NoteViewSet, basename='note')
+router.register(r'candidate', CandidateViewSet, basename='candidate')
+router.register(r'professional_license',
+                ProfessionalLicenseViewSet, basename='professional_license')
 
 
 urlpatterns = [

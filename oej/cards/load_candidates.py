@@ -45,7 +45,8 @@ class LoadCandidates:
         Body.objects.bulk_create([Body(**body) for body in bodies])
         positions = [
             {
-                "name": "Ministras y Ministros de la Suprema Corte de Justicia de la Nación",
+                "full_name": "Ministras y Ministros de la Suprema Corte de Justicia de la Nación",
+                "name": "de la Suprema Corte de Justicia de la Nación",
                 "short_name": "SCJN",
                 "male_name": "Ministro",
                 "female_name": "Ministra",
@@ -53,7 +54,8 @@ class LoadCandidates:
                 "is_national": True
             },
             {
-                "name": "Integrantes del Tribunal de Disciplina Judicial",
+                "full_name": "Integrantes del Tribunal de Disciplina Judicial",
+                "name": "del Tribunal de Disciplina Judicial",
                 "short_name": "TDJ",
                 "male_name": "Integrante",
                 "female_name": "Integrante",
@@ -61,7 +63,8 @@ class LoadCandidates:
                 "is_national": True
             },
             {
-                "name": "Magistraturas de la Sala Superior del TEPJF*",
+                "full_name": "Magistraturas de la Sala Superior del TEPJF*",
+                "name": "del Tribunal Electoral del Poder Judicial de la Federación (TEPJF)",
                 "short_name": "Sala Superior TEPJF",
                 "male_name": "Magistrado",
                 "female_name": "Magistrada",
@@ -70,7 +73,8 @@ class LoadCandidates:
                 "is_national": True
             },
             {
-                "name": "Magistraturas de las Salas Regionales del TEPJF*",
+                "full_name": "Magistraturas de las Salas Regionales del TEPJF*",
+                "name": "del Tribunal Electoral del Poder Judicial de la Federación (TEPJF)",
                 "short_name": "Sala Regional TEPJF",
                 "male_name": "Magistrado",
                 "female_name": "Magistrada",
@@ -82,11 +86,15 @@ class LoadCandidates:
         for position in positions:
             body = Body.objects.get(short_name=position.pop("body"))
             position["body"] = body
-            position_obj = Position.objects.create(**position)
+            try:
+                position_obj = Position.objects.get(short_name=position["short_name"])
+                for key, value in position.items():
+                    setattr(position_obj, key, value)
+                position_obj.save()
+            except Position.DoesNotExist:
+                position_obj = Position.objects.create(**position)
             if not position.get("by_circunscription", False):
                 Seat.objects.create(position=position_obj)
-        # circunscriptions = [1, 2, 3, 4, 5]
-        # for circ in circunscriptions:
         for circ in range(1, 6):
             position = Position.objects.get(short_name="Sala Regional TEPJF")
             Seat.objects.create(position=position, circunscription=circ)
@@ -181,22 +189,8 @@ def init_load():
     extractor.load_base_data()
 
 
-# def post_load():
-#     import re
-#     all_candidates = Candidate.objects.filter(first_name__contains=" ")
-#     print(f"Updating {all_candidates.count()} candidates")
-#     for candidate in all_candidates:
-#         find_names = candidate.first_name.split(" ")
-#         final_names = []
-#         for name in find_names:
-#             clean_name = re.sub(r"[^a-zA-Z]", "", name)
-#             if clean_name in ["MA", "M"]:
-#                 clean_name = "MARIA"
-#             elif len(clean_name) <= 2:
-#                 continue
-#             elif clean_name in ["DEL", "LOS"]:
-#                 continue
-#             final_names.append(clean_name)
-#         candidate.find_names = find_names
-#         candidate.save()
-#
+def post_load():
+    all_candidates = Candidate.objects.filter(full_name_normalized__isnull=True)
+    print(f"Updating {all_candidates.count()} candidates")
+    for candidate in all_candidates:
+        candidate.save()
