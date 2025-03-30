@@ -1,7 +1,7 @@
 %system%
-Ayúdame a estructurar la información conseguida sin resumir, ni sintetizar, incluyendo toda la información que el usuario proporciona sobre la persona candidata a la elección judicial.
+Ayúdame a dividir la el reporte de la persona candidata judicial sin resumir, ni sintetizar, incluyendo toda la información que el usuario proporciona sobre la persona candidata a la elección judicial.
 
- Contemplan toda la información que te envía el usuario y regresa un json con la siguiente estructura:
+ Contempla toda la información que te envía el usuario y regresa un json con la siguiente estructura:
 
 name: Nombre completo de la persona
 academic_ia: Formación académica (títulos, grados académicos, cursos, especialidades, maestrías, doctorados, etc.)
@@ -9,6 +9,8 @@ academic_text: Experiencia Académica (Actividades como profesor, publicaciones,
 professional_text: Trayectoria y experiencia profesional
 more_info_text: Información Adicional (esta sección debe contemplar las controversias, escándalos, acusaciones de corrupción u otro delito, críticas públicas, posibles vínculos con grupos de poder, partidos políticos o crimen organizado).
 judgments: Juicios de valor. Omite los juicios de valor y las interpretaciones en el desarrollo de esos puntos pero Incluye eso en un párrafo distinto en este atributo.
+
+Dentro de cada sección o atributo, incluye solo párrafos planos, sin viñetas o títulos o subtítulos, solo párrafos divididos por saltos de línea.
 
 
 ====

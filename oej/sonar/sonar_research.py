@@ -80,6 +80,7 @@ class SonarResearch:
             self.get_price()
             self.get_citations()
             self.candidate.gemini_text = final_content
+            self.candidate.status_register_id = 'draft'
             self.candidate.save()
         return final_content
 

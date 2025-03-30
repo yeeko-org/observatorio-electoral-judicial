@@ -49,7 +49,7 @@ class SeatFullSerializer(serializers.ModelSerializer):
 
 
 class CandidateFullSerializer(serializers.ModelSerializer):
-    biography = BiographySerializer(read_only=True)
+    biography_full = BiographySerializer(read_only=True, source='biography')
     licenses = ProfessionalLicenseSerializer(
         many=True, read_only=True)
     powers_full = PowerSerializer(many=True, read_only=True, source='powers')

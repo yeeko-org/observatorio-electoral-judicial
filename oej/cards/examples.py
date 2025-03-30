@@ -50,16 +50,16 @@ def test_first_seat():
         # print(sonar.candidate.gemini_text)
 
 def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
-    ai_company = 'openai'
-    engine = 'gpt-4o-2024-11-20'
-
+    # ai_company = 'openai'
+    # engine = 'gpt-4o-2024-11-20'
     from django.utils import timezone
     from oej.sonar.sonar_research import SonarResearch
-    from oej.models import Candidate
+    from oej.models import Candidate, StatusControl
     deepseek = SonarResearch(
         ai_company=ai_company, engine=engine, to_json=True)
     candidates = Candidate.objects\
         .filter(gemini_text__isnull=False, academic_text__isnull=True)
+    st_created = StatusControl.objects.get(name='created')
     for candidate in candidates:
         start = timezone.now()
         print(f"Starting at {start}")
@@ -73,8 +73,8 @@ def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
         result.pop("name")
         for key, value in result.items():
             setattr(candidate, key, value)
+        candidate.status_register = st_created
         candidate.save()
-
         finish = timezone.now()
         print(f"Finished at {finish}")
         duration = finish - start
@@ -87,6 +87,21 @@ def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
 
 def reset_status_candidates():
     from oej.models import Candidate
-    candidates = Candidate.objects.filter(gemini_text__isnull=False)
+    candidates = Candidate.objects.filter(status_register_id='need_new_checking')
     print(candidates.count())
-    candidates.update(status_register_id='need_new_checking')
+    candidates.update(
+        first_year=None,
+        gemini_text=None,
+        price=None,
+        price_details=None,
+        academic_ia=None,
+        academic_text=None,
+        professional_ia=None,
+        professional_text=None,
+        more_info_ia=None,
+        more_info_text=None,
+        judgments=None,
+        comments=None,
+        sources=None,
+        status_register=None,
+    )

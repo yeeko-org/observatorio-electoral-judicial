@@ -18,7 +18,10 @@ class BodyAdmin(admin.ModelAdmin):
 
 @admin.register(StatusControl)
 class StatusControlAdmin(admin.ModelAdmin):
-    pass
+    list_display = [
+        "public_name", "name", "group", "order", "is_public", "color", "icon"]
+    list_editable = ["order", "color", "icon"]
+    list_filter = ["group"]
 
 
 @admin.register(Position)
