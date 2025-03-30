@@ -1,4 +1,4 @@
-from openai import OpenAI, api_key
+from openai import OpenAI
 import json
 
 from django.conf import settings

@@ -81,5 +81,12 @@ def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
         print(f"Duration: {duration}")
 
 
-test_first_structure('deepseek', 'deepseek-chat')
-test_first_structure('openai', 'gpt-4o-2024-11-20')
+# test_first_structure('deepseek', 'deepseek-chat')
+# test_first_structure('openai', 'gpt-4o-2024-11-20')
+
+
+def reset_status_candidates():
+    from oej.models import Candidate
+    candidates = Candidate.objects.filter(gemini_text__isnull=False)
+    print(candidates.count())
+    candidates.update(status_register_id='need_new_checking')
