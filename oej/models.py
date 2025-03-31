@@ -74,6 +74,10 @@ class Position(models.Model):
     description = models.TextField(blank=True, null=True)
     is_national = models.BooleanField(default=False)
     by_circuit = models.BooleanField(default=False)
+    color = models.CharField(
+        max_length=30, blank=True, null=True)
+    color_light = models.CharField(
+        max_length=30, blank=True, null=True)
     by_circunscription = models.BooleanField(
         default=False, verbose_name='Por circunscripción')
     is_public = models.BooleanField(default=False)

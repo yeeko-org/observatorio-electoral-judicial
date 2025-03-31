@@ -3,7 +3,8 @@ from django_filters import (
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import viewsets, mixins, permissions
 from rest_framework.viewsets import GenericViewSet
-
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from api.pagination import CustomPagination
 
 from api.views.action_file import ActionFileMixin
@@ -75,6 +76,28 @@ class CandidateViewSet(ActionFileMixin, viewsets.ModelViewSet):
         data = request.data
         data['editor'] = request.user.id
         return super().create(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def generate_summary(self, request, pk=None):
+        from oej.sonar.sonar_research import SonarResearch
+        candidate = self.get_object()
+        fields = {
+            "full_name_normalized": "Nombre",
+            "professional_text": "Detalles de la experiencia profesional",
+            "academic_text": "Complemento de experiencia académica",
+            "other_text": "Otros detalles como conflictos de interés y otros hallazgos:",
+        }
+        user_prompt = ""
+        for field, label in fields.items():
+            if field in request.data:
+                user_prompt += f"{label}:\n\n {request.data[field]}\n\n"
+        req_data = request.data
+        print("user_prompt", user_prompt)
+        sonar = SonarResearch(ai_company='openai', engine='gpt-4o-2024-11-20')
+        sonar.build_prompt("oej/sonar/summary_prompt.txt")
+        result = sonar.send_prompt(user_prompt)
+        # result = "HOLA"
+        return Response(result, status=200)
 
     # def update(self, request, *args, **kwargs):
     #     data = request.data

@@ -1,5 +1,5 @@
 %system%
-Estoy armando una ficha del perfil del candidata(o) {candidate_name} a la elección judicial. Tengo ya los elementos siguientes elementos visualizados en la ficha gráfica:
+Estoy armando una ficha del perfil del candidata(o) {candidate_name} a la elección judicial. Tengo ya los elementos siguientes visualizados en la ficha gráfica:
 
 -La lista de Títulos o grados académicos
 -Nombre completo
@@ -11,13 +11,15 @@ Necesito que me ayudes a completar la ficha con un RESUMEN de su trayectoria pro
 
 Para el resumen, considera la sección de "Detalles de la Experiencia Profesional".
 
-En contenido de las secciones de "Complemento de experiencia académica" y la de "Otros detalles como conflictos de interés y otros hallazgos" deben omitirse en el resumen, a menos que sean ultra relevantes para terminar de armar el resumen trayectoria profesional.
+En contenido de las secciones de "Complemento de experiencia académica" y la de "Otros detalles como conflictos de interés y otros hallazgos" deben omitirse en el resumen, a menos que sean ultra relevantes para terminar de armar el resumen de trayectoria profesional.
 
 El resumen no debe mencionar de nueva cuenta el nombre de la persona candidata, ni el cargo al que se postula, tampoco debe repetir los títulos o grados académicos que ya están en la ficha gráfica. El resumen debe ser objetivo y claro, evitando juicios de valor o interpretaciones.
 
 ====
 %user%
-NOMBRE: OLIVIA AGUIRRE BONILLA
+Nombre:
+
+OLIVIA AGUIRRE BONILLA
 
 Detalles de la experiencia profesional:
 
@@ -26,7 +28,6 @@ Fue secretaria de Tesis y Proyectista en el Tribunal Colegiado de Circuito Mixto
 Se desempeñó como secretaria de Estudio y Cuenta en la Sala Superior del TEPJF y, en dos ocasiones, ocupó el cargo de Secretaria General de Acuerdos de la misma Sala. Desde 2016, es magistrada presidenta de la Sala Regional Monterrey del TEPJF.
 Entre mayo de 2012 y mayo de 2015, coordinó la Institucionalización de la Perspectiva de Género en el TEPJF, enfocando sus esfuerzos en políticas de igualdad de género, derechos humanos y ciudadanía, especialmente dirigidas a grupos en situación de vulnerabilidad y comunidades indígenas.
 En julio de 2024, fue designada como sexta magistrada provisional de la Sala Superior del TEPJF para participar en la calificación y validez de la elección presidencial de ese año. Esta designación se realizó para cumplir con el quórum legal necesario en dicho proceso.
-
 
 Complemento de experiencia académica:
 

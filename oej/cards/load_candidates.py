@@ -14,12 +14,19 @@ class LoadCandidates:
 
     def load_base_data(self):
         powers = [
-            {"key_name": "PE", "name": "Poder Ejecutivo"},
-            {"key_name": "PJ", "name": "Poder Judicial"},
-            {"key_name": "PL", "name": "Poder Legislativo"},
-            {"key_name": "EF", "name": "En Funciones"}
+            {"key_name": "PE", "name": "Poder Ejecutivo", "icon": "account_balance"},
+            {"key_name": "PJ", "name": "Poder Judicial", "icon": "balance"},
+            {"key_name": "PL", "name": "Poder Legislativo", "icon": "history_edu"},
+            {"key_name": "EF", "name": "En Funciones", "icon": "gavel"}
         ]
-        Power.objects.bulk_create([Power(**power) for power in powers])
+        for power in powers:
+            try:
+                power_obj = Power.objects.get(key_name=power["key_name"])
+                for key, value in power.items():
+                    setattr(power_obj, key, value)
+                power_obj.save()
+            except Power.DoesNotExist:
+                power_obj = Power.objects.create(**power)
         bodies = [
             {
                 "name": "Suprema Corte de Justicia de la Nación",
@@ -51,6 +58,7 @@ class LoadCandidates:
                 body_obj.save()
             except Body.DoesNotExist:
                 body_obj = Body.objects.create(**body)
+
         positions = [
             {
                 "full_name": "Ministras y Ministros de la Suprema Corte de Justicia de la Nación",
@@ -59,7 +67,9 @@ class LoadCandidates:
                 "male_name": "Ministro",
                 "female_name": "Ministra",
                 "body": "SCJN",
-                "is_national": True
+                "is_national": True,
+                "color": "#8681d3",
+                "color_light": "#cac6eb",
             },
             {
                 "full_name": "Magistraturas del Tribunal de Disciplina Judicial",
@@ -68,7 +78,9 @@ class LoadCandidates:
                 "male_name": "Magistrado",
                 "female_name": "Magistrada",
                 "body": "TDJ",
-                "is_national": True
+                "is_national": True,
+                "color": "#80c7bc",
+                "color_light": "#dcefeb",
             },
             {
                 "full_name": "Magistraturas de la Sala Superior del TEPJF*",
@@ -78,7 +90,9 @@ class LoadCandidates:
                 "female_name": "Magistrada",
                 "body": "TEPJF",
                 "sub_body": "Sala Superior",
-                "is_national": True
+                "is_national": True,
+                "color": "#397c9a",
+                "color_light": "#bbd5de",
             },
             {
                 "full_name": "Magistraturas de las Salas Regionales del TEPJF*",
@@ -89,6 +103,8 @@ class LoadCandidates:
                 "body": "TEPJF",
                 "sub_body": "Sala Regional",
                 "by_circunscription": True,
+                "color": "#f8c6b8",
+                "color_light": "#feeae7",
             },
             {
                 "full_name": "Magistraturas de Circuito",
@@ -99,6 +115,8 @@ class LoadCandidates:
                 "body": "MC",
                 "is_national": False,
                 "by_circuit": True,
+                "color": "#c08ba5",
+                "color_light": "#eddee5",
             },
             {
                 "full_name": "Juezas y Jueces de Distrito",
@@ -109,6 +127,8 @@ class LoadCandidates:
                 "body": "DJF",
                 "is_national": False,
                 "by_circuit": True,
+                "color": "#ffe365",
+                "color_light": "#fffae6",
             }
         ]
         for position in positions:
@@ -128,14 +148,14 @@ class LoadCandidates:
             Seat.objects.get_or_create(
                 position=position, circunscription_id=circ)
 
-    def reset_base_data(self):
-        Power.objects.all().delete()
-        Body.objects.all().delete()
-        Position.objects.all().delete()
-        Seat.objects.all().delete()
+    # def reset_base_data(self):
+    #     Power.objects.all().delete()
+    #     Body.objects.all().delete()
+    #     Position.objects.all().delete()
+    #     Seat.objects.all().delete()
 
-    def reset_candidates(self):
-        Candidate.objects.all().delete()
+    # def reset_candidates(self):
+    #     Candidate.objects.all().delete()
 
     def read_from_json(self, filename, position_short_name):
         self.position = Position.objects.get(short_name=position_short_name)
@@ -217,5 +237,4 @@ def main_load(collections=None):
 def init_load():
     extractor = LoadCandidates()
     extractor.load_base_data()
-
 

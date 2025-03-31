@@ -97,8 +97,9 @@ class Power(models.Model):
     key_name = models.CharField(max_length=2, primary_key=True)
     name = models.CharField(max_length=90)
     description = models.TextField(blank=True, null=True)
-    icon = models.FileField(
+    icon_image = models.FileField(
         upload_to='oej_icons', max_length=255, blank=True, null=True)
+    icon = models.CharField(max_length=100, blank=True, null=True)
     color = models.CharField(max_length=80, blank=True, null=True)
 
     def __str__(self):
