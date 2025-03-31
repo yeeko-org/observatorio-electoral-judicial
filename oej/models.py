@@ -194,15 +194,6 @@ class Candidate(models.Model):
             sub_body = f"de la {sub_body} "
         gender_prefix = pos.female_name if self.sex == "Mujer" \
             else pos.male_name
-        return f"{gender_prefix} {sub_body}{pos.name}"    @property
-
-    def not_position(self):
-        pos = candidate.seat.position
-        sub_body = candidate.seat.position.sub_body or ''
-        if sub_body:
-            sub_body = f"de la {sub_body} "
-        gender_prefix = pos.female_name if candidate.sex == "Mujer" \
-            else pos.male_name
         return f"{gender_prefix} {sub_body}{pos.name}"
 
     def __str__(self):
