@@ -36,7 +36,8 @@ def test_first_seat():
     from oej.sonar.sonar_research import SonarResearch
     from oej.models import Candidate
     candidates = Candidate.objects\
-        .filter(seat_id=1, gemini_text__isnull=True)
+        .filter(seat_id=1, gemini_text__isnull=True)\
+        .order_by('id')
     sonar = SonarResearch(ai_company='sonar', engine='sonar-deep-research')
     for candidate in candidates[:20]:
         start = timezone.now()
@@ -49,12 +50,13 @@ def test_first_seat():
         print(f"Duration: {duration}")
         # print(sonar.candidate.gemini_text)
 
-def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
+def apply_structure(ai_company='deepseek', engine='deepseek-chat'):
     # ai_company = 'openai'
     # engine = 'gpt-4o-2024-11-20'
     from django.utils import timezone
     from oej.sonar.sonar_research import SonarResearch
     from oej.models import Candidate, StatusControl
+    bio_title = "\n\nBIOGRAFÍA DEL CONSEJO DE LA JUDICATURA FEDERAL (CJF)\n\n"
     deepseek = SonarResearch(
         ai_company=ai_company, engine=engine, to_json=True)
     candidates = Candidate.objects\
@@ -66,6 +68,8 @@ def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
         # candidate = candidates.first()
         deepseek.build_prompt("oej/sonar/structure_prompt.txt")
         user_prompt = candidate.gemini_text
+        if candidate.biography and candidate.biography.curriculum:
+            user_prompt += f"{bio_title}{candidate.biography.curriculum}"
         result = deepseek.send_prompt(user_prompt=user_prompt)
         if not result:
             print("No result")
@@ -81,8 +85,8 @@ def test_first_structure(ai_company='deepseek', engine='deepseek-chat'):
         print(f"Duration: {duration}")
 
 
-# test_first_structure('deepseek', 'deepseek-chat')
-# test_first_structure('openai', 'gpt-4o-2024-11-20')
+# apply_structure('deepseek', 'deepseek-chat')
+# apply_structure('openai', 'gpt-4o-2024-11-20')
 
 
 def reset_status_candidates():

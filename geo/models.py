@@ -6,7 +6,8 @@ class Circunscription(models.Model):
 
     name = models.CharField(max_length=255)
     number = models.IntegerField()
-    city = models.CharField(max_length=255, blank=True, null=True)
+    city = models.CharField(
+        max_length=255, blank=True, null=True)
 
     def __str__(self):
         return f"{self.name} - {self.number} - {self.city}"
@@ -107,3 +108,36 @@ class Power(models.Model):
         verbose_name = 'Poder'
         verbose_name_plural = 'Poderes'
         db_table = "oej_power"
+
+
+class JudicialElectoralDistrict(models.Model):
+    name = models.CharField(max_length=255)
+    number = models.IntegerField()
+    federal_district = models.IntegerField(
+        verbose_name="Distrito electoral", blank=True, null=True)
+    state = models.ForeignKey(
+        State, on_delete=models.CASCADE,
+        related_name='judicial_electoral_districts')
+
+    def __str__(self):
+        return f"{self.name} - {self.number} - {self.state}"
+
+    class Meta:
+        verbose_name = 'Distrito Electoral Judicial'
+        verbose_name_plural = 'Distritos Electorales Judiciales'
+
+
+class Section(models.Model):
+    number = models.IntegerField()
+    judicial_electoral_district = models.ForeignKey(
+        JudicialElectoralDistrict, on_delete=models.CASCADE,
+        related_name='sections')
+    federal_district = models.IntegerField(
+        verbose_name="Distrito electoral", blank=True, null=True)
+
+    def __str__(self):
+        return f'{self.judicial_electoral_district} - {self.number}'
+
+    class Meta:
+        verbose_name = 'Sección'
+        verbose_name_plural = 'Secciones'

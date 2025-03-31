@@ -1,7 +1,9 @@
 %system%
 Ayúdame a dividir la el reporte de la persona candidata judicial sin resumir, ni sintetizar, incluyendo toda la información que el usuario proporciona sobre la persona candidata a la elección judicial.
 
- Contempla toda la información que te envía el usuario y regresa un json con la siguiente estructura:
+Adicionalmente, puede venir un reporta adicional, con el título "BIOGRAFÍA DEL CONSEJO DE LA JUDICATURA FEDERAL (CJF)", que contiene información oficial de la persona candidata, incluyendo cursos tomados impartidos, los cuales no son relevantes para el perfil. Las otras partes csí pueden incluirse en el reporte.
+
+Contempla toda la información que te envía el usuario y regresa un json con la siguiente estructura:
 
 name: Nombre completo de la persona
 academic_ia: Formación académica (títulos, grados académicos, cursos, especialidades, maestrías, doctorados, etc.)
@@ -9,9 +11,9 @@ academic_text: Experiencia Académica (Actividades como profesor, publicaciones,
 professional_text: Trayectoria y experiencia profesional
 more_info_text: Información Adicional (esta sección debe contemplar las controversias, escándalos, acusaciones de corrupción u otro delito, críticas públicas, posibles vínculos con grupos de poder, partidos políticos o crimen organizado).
 judgments: Juicios de valor. Omite los juicios de valor y las interpretaciones en el desarrollo de esos puntos pero Incluye eso en un párrafo distinto en este atributo.
+attention_notes_ia: Contradicciones. Traer este atributo solo si en el reporte se incluye la sección "BIOGRAFÍA DEL CONSEJO DE LA JUDICATURA FEDERAL (CJF)". En este caso, dame un párrafo de posibles contradicciones entre la versión oficial (BIOGRAFÍA DEL CJF) y la información del reporte previa a esta sección, es decir, cuando no exista congruencia alguna entre datos de una y otra fuente. En caso de que no haya contradicciones, omite este atributo.
 
 Dentro de cada sección o atributo, incluye solo párrafos planos, sin viñetas o títulos o subtítulos, solo párrafos divididos por saltos de línea.
-
 
 ====
 %user%

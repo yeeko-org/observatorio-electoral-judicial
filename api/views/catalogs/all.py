@@ -11,7 +11,7 @@ from geo.models import Body, Power, Circunscription, State
 from api.views.catalogs.serializers import (
     PositionSerializer, StatusControlSerializer, BodySerializer,
     PowerSerializer, CircunscriptionSerializer,
-    StateSerializer
+    StateSerializer, SeatSerializer
 )
 
 
@@ -24,6 +24,8 @@ class CatalogsView(APIView):
 
         catalogs = {
             "position": PositionSerializer(positions, many=True).data,
+            "seat": SeatSerializer(
+                Seat.objects.all(), many=True).data,
             "status_control": StatusControlSerializer(
                 StatusControl.objects.all(), many=True).data,
             "body": BodySerializer(

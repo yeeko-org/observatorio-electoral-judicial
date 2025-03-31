@@ -1,0 +1,48 @@
+%system%
+Estoy armando una ficha del perfil del candidata(o) {candidate_name} a la elección judicial. Tengo ya los elementos siguientes elementos visualizados en la ficha gráfica:
+
+-La lista de Títulos o grados académicos
+-Nombre completo
+-Cargo al que se postula
+-Sexo
+-Foto
+
+Necesito que me ayudes a completar la ficha con un RESUMEN de su trayectoria profesional de 1 o 2 párrafos. El resumen no debe exceder los 500 caracteres.
+
+Para el resumen, considera la sección de "Detalles de la Experiencia Profesional".
+
+En contenido de las secciones de "Complemento de experiencia académica" y la de "Otros detalles como conflictos de interés y otros hallazgos" deben omitirse en el resumen, a menos que sean ultra relevantes para terminar de armar el resumen trayectoria profesional.
+
+El resumen no debe mencionar de nueva cuenta el nombre de la persona candidata, ni el cargo al que se postula, tampoco debe repetir los títulos o grados académicos que ya están en la ficha gráfica. El resumen debe ser objetivo y claro, evitando juicios de valor o interpretaciones.
+
+====
+%user%
+NOMBRE: OLIVIA AGUIRRE BONILLA
+
+Detalles de la experiencia profesional:
+
+Comenzó su carrera en 1992 como oficial judicial adscrita al Segundo Tribunal Unitario de Circuito en Mexicali, Baja California. Posteriormente, se desempeñó como actuaria y secretaria de Juzgado de Distrito en Baja California y Ciudad de México.
+Fue secretaria de Tesis y Proyectista en el Tribunal Colegiado de Circuito Mixto en Oaxaca.
+Se desempeñó como secretaria de Estudio y Cuenta en la Sala Superior del TEPJF y, en dos ocasiones, ocupó el cargo de Secretaria General de Acuerdos de la misma Sala. Desde 2016, es magistrada presidenta de la Sala Regional Monterrey del TEPJF.
+Entre mayo de 2012 y mayo de 2015, coordinó la Institucionalización de la Perspectiva de Género en el TEPJF, enfocando sus esfuerzos en políticas de igualdad de género, derechos humanos y ciudadanía, especialmente dirigidas a grupos en situación de vulnerabilidad y comunidades indígenas.
+En julio de 2024, fue designada como sexta magistrada provisional de la Sala Superior del TEPJF para participar en la calificación y validez de la elección presidencial de ese año. Esta designación se realizó para cumplir con el quórum legal necesario en dicho proceso.
+
+
+Complemento de experiencia académica:
+
+Maestría en Derechos Humanos, Interculturalidad y Desarrollo Universidad Pablo de Olavide
+
+Es integrante del Sistema Nacional de Investigadores (SNI) nivel 1 desde 2019.
+Ha publicado investigaciones relevantes como 'El feminicidio en Ciudad Juárez: una perspectiva jurídica' y 'Víctimas de Villas del Salvárcar: ¿un ejemplo de justicia restaurativa?'.
+Evaluadora y acreditadora de programas de derecho en instituciones nacionales e internacionales.
+Profesor-Investigador de Tiempo Completo en la Universidad Autónoma de Ciudad Juárez (UACJ) desde 2012, liderando proyectos como el Protocolo contra el Acoso y Hostigamiento en la universidad e investigaciones sobre trata de personas y explotación sexual en Ciudad Juárez.
+Imparte cátedras en derechos humanos vinculando teoría con prácticas en litigio estratégico.
+
+Otros detalles como conflictos de interés y otros hallazgos:
+
+Denunció públicamente la infiltración de cárteles inmobiliarios en el Poder Judicial de Chihuahua, señalando actos de corrupción vinculados a despojo de viviendas en ciudadanos vulnerables.
+Enfrenta críticas por supuesta autopromoción en medios antes del inicio de las campañas
+
+====
+%assistant%
+Inició su carrera en el sistema judicial en 1992, avanzando rápidamente a roles de mayor responsabilidad, como actuaria y secretaria de juzgado en Baja California y Ciudad de México. Ha desempeñado funciones clave en el TEPJF, donde coordinó importantes iniciativas de igualdad de género y derechos humanos. Desde 2016, lidera como magistrada presidenta de la Sala Regional Monterrey del TEPJF, y en 2024 participó en la calificación de la elección presidencial, destacándose por su enfoque en grupos vulnerables y comunidades indígenas.

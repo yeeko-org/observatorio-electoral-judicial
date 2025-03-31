@@ -27,4 +27,7 @@ ALGUNOS PASOS SUGERIDOS:
 
 -Revisa menciones en medios sobre la idoneidad, calificaciones o evaluaciones públicas de {candidate_name} para el cargo al que aspira.
 
+-Ten cuidado con los sitios o notas que contengan más de un perfil. No mezcles información de diferentes personas.
+
 -Responde sin resumir, intenta darme un informe largo y detallado que contenga por lo menos 32000 caracteres (o 4000 palabras).
+

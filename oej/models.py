@@ -1,5 +1,5 @@
 from django.db import models
-from geo.models import State, Body, Power
+from geo.models import State, Body, Power, Circunscription
 from utils.common import text_normalizer
 
 
@@ -105,7 +105,9 @@ class Seat(models.Model):
     state = models.ForeignKey(
         State, on_delete=models.CASCADE, blank=True, null=True,
         related_name='seats')
-    circunscription = models.IntegerField(blank=True, null=True)
+    circunscription = models.ForeignKey(
+        Circunscription, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='seats')
     topics = models.ManyToManyField(Topic, related_name='seats')
 
     def __str__(self):
@@ -191,6 +193,15 @@ class Candidate(models.Model):
         if sub_body:
             sub_body = f"de la {sub_body} "
         gender_prefix = pos.female_name if self.sex == "Mujer" \
+            else pos.male_name
+        return f"{gender_prefix} {sub_body}{pos.name}"    @property
+
+    def not_position(self):
+        pos = candidate.seat.position
+        sub_body = candidate.seat.position.sub_body or ''
+        if sub_body:
+            sub_body = f"de la {sub_body} "
+        gender_prefix = pos.female_name if candidate.sex == "Mujer" \
             else pos.male_name
         return f"{gender_prefix} {sub_body}{pos.name}"
 

@@ -42,7 +42,15 @@ class LoadCandidates:
                 "short_name": "MC"
             },
         ]
-        Body.objects.bulk_create([Body(**body) for body in bodies])
+        # Body.objects.bulk_create([Body(**body) for body in bodies])
+        for body in bodies:
+            try:
+                body_obj = Body.objects.get(short_name=body["short_name"])
+                for key, value in body.items():
+                    setattr(body_obj, key, value)
+                body_obj.save()
+            except Body.DoesNotExist:
+                body_obj = Body.objects.create(**body)
         positions = [
             {
                 "full_name": "Ministras y Ministros de la Suprema Corte de Justicia de la Nación",
@@ -54,11 +62,11 @@ class LoadCandidates:
                 "is_national": True
             },
             {
-                "full_name": "Integrantes del Tribunal de Disciplina Judicial",
+                "full_name": "Magistraturas del Tribunal de Disciplina Judicial",
                 "name": "del Tribunal de Disciplina Judicial",
                 "short_name": "TDJ",
-                "male_name": "Integrante",
-                "female_name": "Integrante",
+                "male_name": "Magistrado",
+                "female_name": "Magistrada",
                 "body": "TDJ",
                 "is_national": True
             },
@@ -81,6 +89,26 @@ class LoadCandidates:
                 "body": "TEPJF",
                 "sub_body": "Sala Regional",
                 "by_circunscription": True,
+            },
+            {
+                "full_name": "Magistraturas de Circuito",
+                "name": "de Circuito",
+                "short_name": "Magistraturas de Circuito",
+                "male_name": "Magistrado",
+                "female_name": "Magistrada",
+                "body": "MC",
+                "is_national": False,
+                "by_circuit": True,
+            },
+            {
+                "full_name": "Juezas y Jueces de Distrito",
+                "name": "de Distrito",
+                "short_name": "Juezas y Jueces",
+                "male_name": "Juez",
+                "female_name": "Jueza",
+                "body": "DJF",
+                "is_national": False,
+                "by_circuit": True,
             }
         ]
         for position in positions:
@@ -94,10 +122,11 @@ class LoadCandidates:
             except Position.DoesNotExist:
                 position_obj = Position.objects.create(**position)
             if not position.get("by_circunscription", False):
-                Seat.objects.create(position=position_obj)
+                Seat.objects.get_or_create(position=position_obj)
         for circ in range(1, 6):
             position = Position.objects.get(short_name="Sala Regional TEPJF")
-            Seat.objects.create(position=position, circunscription=circ)
+            Seat.objects.get_or_create(
+                position=position, circunscription_id=circ)
 
     def reset_base_data(self):
         Power.objects.all().delete()
@@ -159,21 +188,22 @@ class LoadCandidates:
 
 
 # if __name__ == "__main__":
-def main():
-    collections = [
-        {
-            "body_short_name": "SCJN",
-            "json_file": "scjn.json"
-        },
-        {
-            "body_short_name": "Sala Superior TEPJF",
-            "json_file": "magis_te.json"
-        },
-        {
-            "body_short_name": "Sala Regional TEPJF",
-            "json_file": "magis_reg.json"
-        }
-    ]
+def main_load(collections=None):
+    if collections is None:
+        collections = [
+            {
+                "body_short_name": "SCJN",
+                "json_file": "scjn.json"
+            },
+            {
+                "body_short_name": "Sala Superior TEPJF",
+                "json_file": "magis_te.json"
+            },
+            {
+                "body_short_name": "Sala Regional TEPJF",
+                "json_file": "magis_reg.json"
+            }
+        ]
 
     common_path = "G:\Mi unidad\YEEKO\Proyectos\oej\listas"
     for collection in collections:
@@ -189,8 +219,3 @@ def init_load():
     extractor.load_base_data()
 
 
-def post_load():
-    all_candidates = Candidate.objects.filter(full_name_normalized__isnull=True)
-    print(f"Updating {all_candidates.count()} candidates")
-    for candidate in all_candidates:
-        candidate.save()
