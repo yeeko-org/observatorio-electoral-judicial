@@ -25,7 +25,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'rest_framework.authtoken',
-    # 'django_filters',
+    'django_filters',
 
     'profile_auth.apps.ProfileAuthConfig',
     'geo.apps.GeoConfig',
@@ -97,6 +97,8 @@ if DATABASE_SCHEMA:
 DATABASES = {
     "default": default_database
 }
+
+IS_LOCAL = getenv_bool("IS_LOCAL", False)
 # ---------------------end Default database configuration---------------------
 
 

@@ -1,6 +1,7 @@
 from django.db import models
 from geo.models import State, Body, Power, Circunscription
 from utils.common import text_normalizer
+from django.core.files.base import ContentFile
 
 
 class Biography(models.Model):
@@ -74,9 +75,13 @@ class Position(models.Model):
     description = models.TextField(blank=True, null=True)
     is_national = models.BooleanField(default=False)
     by_circuit = models.BooleanField(default=False)
+    total_seats = models.IntegerField(
+        default=0, verbose_name='Número de cargos')
+    total_candidates = models.IntegerField(
+        default=0, verbose_name='Número de cargos')
     color = models.CharField(
         max_length=30, blank=True, null=True)
-    color_light = models.CharField(
+    color_light  = models.CharField(
         max_length=30, blank=True, null=True)
     by_circunscription = models.BooleanField(
         default=False, verbose_name='Por circunscripción')
@@ -128,6 +133,7 @@ class Candidate(models.Model):
         ("Mujer", "Mujer"),
     )
 
+    id_ine = models.IntegerField(blank=True, null=True)
     first_name = models.CharField(max_length=255)
     last_name_1 = models.CharField(max_length=255)
     last_name_2 = models.CharField(max_length=255, blank=True, null=True)
@@ -139,24 +145,27 @@ class Candidate(models.Model):
         max_length=255, blank=True, null=True)
     alternative_names = models.JSONField(blank=True, null=True)
     find_names = models.JSONField(blank=True, null=True)
+    full_name = models.CharField(
+        max_length=255, blank=True, null=True)
     full_name_normalized = models.CharField(
         max_length=255, blank=True, null=True)
     seat = models.ForeignKey(
         Seat, on_delete=models.CASCADE, related_name='candidates')
     powers = models.ManyToManyField('geo.Power', related_name='candidates')
+
+    sex = models.CharField(
+        max_length=10, choices=SEX_CHOICES, blank=True, null=True)
     biography = models.ForeignKey(
         Biography, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates')
-    first_year = models.SmallIntegerField(blank=True, null=True)
-    sex = models.CharField(
-        max_length=10, choices=SEX_CHOICES, blank=True, null=True)
     photo = models.FileField(
         upload_to='candidates_photos/', max_length=255, blank=True, null=True)
+    photo_small = models.FileField(
+        upload_to='candidates_photos/', max_length=255, blank=True, null=True)
+
     gemini_link = models.URLField(blank=True, null=True)
     gemini_text = models.TextField(blank=True, null=True)
-    price = models.DecimalField(
-        max_digits=10, decimal_places=2, blank=True, null=True)
-    price_details = models.JSONField(blank=True, null=True)
+    first_year = models.SmallIntegerField(blank=True, null=True)
     academic_ia = models.TextField(blank=True, null=True)
     academic_text = models.TextField(blank=True, null=True)
     professional_ia = models.TextField(blank=True, null=True)
@@ -165,17 +174,41 @@ class Candidate(models.Model):
     more_info_ia = models.TextField(blank=True, null=True)
     more_info_text = models.TextField(blank=True, null=True)
     judgments = models.TextField(blank=True, null=True)
-    comments = models.TextField(blank=True, null=True)
     attention_notes_ia = models.TextField(blank=True, null=True)
     sources = models.JSONField(blank=True, null=True)
-    is_public = models.BooleanField(default=False)
 
+    ine_data = models.JSONField(
+        blank=True, null=True, verbose_name='Datos INE')
+    ine_cv = models.URLField(
+        blank=True, null=True, verbose_name='URL del CV INE')
+    ine_photo = models.URLField(
+        blank=True, null=True, verbose_name='URL de la foto del INE')
+    num_list = models.CharField(
+        max_length=4, blank=True, null=True,
+        verbose_name='Número de lista')
+
+    is_public = models.BooleanField(default=False)
+    comments = models.TextField(blank=True, null=True)
     status_register = models.ForeignKey(
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_practica')
     status_validation = models.ForeignKey(
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_laboratorio')
+
+    price = models.DecimalField(
+        max_digits=10, decimal_places=2, blank=True, null=True)
+    price_details = models.JSONField(blank=True, null=True)
+
+    @property
+    def position(self):
+        pos = self.seat.position
+        sub_body = self.seat.position.sub_body or ''
+        if sub_body:
+            sub_body = f"de la {sub_body} "
+        gender_prefix = pos.female_name if self.sex == "Mujer" \
+            else pos.male_name
+        return f"{gender_prefix} {sub_body}{pos.name}"
 
     def save(self, *args, **kwargs):
         if not self.first_name_normalized:
@@ -188,17 +221,135 @@ class Candidate(models.Model):
             full_name = f"{self.first_name} {self.last_name_1} {self.last_name_2}"
             full_name = full_name.strip()
             self.full_name_normalized = text_normalizer(full_name)
+        if not self.full_name:
+            full_name = f"{self.first_name} {self.last_name_1} {self.last_name_2}"
+            self.full_name = full_name.strip()
+        if self.ine_photo and (not self.photo or not self.photo_small):
+            self.save_image_from_url()
         super(Candidate, self).save(*args, **kwargs)
 
-    @property
-    def position(self):
-        pos = self.seat.position
-        sub_body = self.seat.position.sub_body or ''
-        if sub_body:
-            sub_body = f"de la {sub_body} "
-        gender_prefix = pos.female_name if self.sex == "Mujer" \
-            else pos.male_name
-        return f"{gender_prefix} {sub_body}{pos.name}"
+    def get_photo_content(self):
+        if self.photo:
+            return self.photo.read()
+        elif self.ine_photo:
+            import requests
+            response = requests.get(self.ine_photo)
+            if response.status_code == 200:
+                image_content = response.content
+                file_name = self.ine_photo.split("/")[-1]
+                self.photo.save(
+                    file_name, ContentFile(image_content), save=False)
+                return image_content
+            else:
+                raise Exception(
+                    f"Error al descargar la imagen. Código de estado: "
+                    f"{response.status_code}"
+                )
+        else:
+            return None
+
+    def save_image_from_url(self):
+        from PIL import Image, ImageDraw
+        from io import BytesIO
+
+        if not self.ine_photo:
+            return
+
+        image_content = self.get_photo_content()
+        if not image_content:
+            return
+
+        # Open the image
+        img = Image.open(BytesIO(image_content))
+
+        # Get original dimensions
+        width, height = img.size
+
+        # Set maximum width to 200px and calculate height to maintain aspect ratio
+        max_width = 200
+        new_height = int(height * (max_width / width))
+
+        try:
+            # Resize the image
+            img_small = img.resize((max_width, new_height), Image.LANCZOS)
+
+            # Make the image square (needed for a perfect circle)
+            size = min(max_width, new_height)
+
+            # Calculate offsets to crop from center
+            left = (max_width - size) // 2
+            top = (new_height - size) // 2
+            right = left + size
+            bottom = top + size
+
+            # Crop to square
+            img_small = img_small.crop((left, top, right, bottom))
+
+            # Create a circular mask
+            mask = Image.new('L', (size, size), 0)
+            draw = ImageDraw.Draw(mask)
+            draw.ellipse((0, 0, size, size), fill=255)
+
+            # Create a transparent background image
+            result = Image.new('RGBA', (size, size), (0, 0, 0, 0))
+
+            # Convert the resized image to RGBA if it isn't already
+            if img_small.mode != 'RGBA':
+                img_small = img_small.convert('RGBA')
+
+            # Paste the square image onto the result using the circular mask
+            result.paste(img_small, (0, 0), mask)
+
+            # Save as PNG
+            output = BytesIO()
+            result.save(output, format='PNG')
+            output.seek(0)
+
+            # Extract base filename and change extension to png
+            original_filename = self.ine_photo.split('/')[-1]
+            base_filename = original_filename.rsplit('.', 1)[0]  # Remove extension
+            photo_small_name = f"small_{base_filename}.png"
+
+            self.photo_small.save(
+                photo_small_name, ContentFile(output.getvalue()), save=False)
+
+            print(f"Imagen guardada exitosamente como {photo_small_name}.")
+        except Exception as e:
+            print(f"Error al procesar la imagen: {e}")
+
+    def save_image_from_url_old(self):
+        from PIL import Image
+        from io import BytesIO
+
+        if not self.ine_photo:
+            return
+
+        image_content = self.get_photo_content()
+        if not image_content:
+            return
+        img = Image.open(BytesIO(image_content))
+        # Get original dimensions
+        width, height = img.size
+
+        # Set maximum width to 100px and calculate height to maintain aspect ratio
+        max_width = 200
+        new_height = int(height * (max_width / width))
+        try:
+            img_small = img.resize((max_width, new_height), Image.LANCZOS)
+
+            if img_small.mode == 'RGBA':
+                img_small = img_small.convert('RGB')
+            output = BytesIO()
+            img_small.save(output, format='JPEG', quality=85)
+            output.seek(0)
+            file_name = self.ine_photo.split('/')[-1]
+            photo_small_name = f"small_{file_name}"
+            self.photo_small.save(
+                photo_small_name, ContentFile(output.getvalue()), save=False)
+
+            print(f"Imagen guardada exitosamente como {file_name}.")
+        except Exception as e:
+            print(f"Error al procesar la imagen: {e}")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name_1}"

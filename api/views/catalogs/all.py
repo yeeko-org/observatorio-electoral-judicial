@@ -26,8 +26,6 @@ class CatalogsView(APIView):
             "position": PositionSerializer(positions, many=True).data,
             "seat": SeatSerializer(
                 Seat.objects.all(), many=True).data,
-            "status_control": StatusControlSerializer(
-                StatusControl.objects.all(), many=True).data,
             "body": BodySerializer(
                 Body.objects.all(), many=True).data,
             "power": PowerSerializer(
@@ -36,7 +34,9 @@ class CatalogsView(APIView):
                 Circunscription.objects.all(), many=True).data,
             "state": StateSerializer(
                 State.objects.all(), many=True).data,
+            "status_control": StatusControlSerializer(
+                StatusControl.objects.all(), many=True).data,
         }
-        return Response(catalogs)
 
+        return Response(catalogs)
 

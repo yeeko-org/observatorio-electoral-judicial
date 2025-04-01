@@ -6,6 +6,7 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from api.pagination import CustomPagination
+from api.permissions import IsFullEditorOrReadOnly
 
 from api.views.action_file import ActionFileMixin
 from rest_framework.filters import SearchFilter, OrderingFilter
@@ -13,7 +14,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 from oej.models import Candidate, ProfessionalLicense, Biography
 
 from api.views.profile.serializers import (
-    CandidateSerializer, CandidateFullSerializer,
+    CandidateSerializer, CandidateFullSerializer, CandidatePublicSerializer,
     ProfessionalLicenseSerializer, BiographySerializer)
 
 
@@ -25,25 +26,29 @@ class CandidateFilter(FilterSet):
     #     field_name='files', lookup_expr='isnull', exclude=True)
     position = NumberFilter(
         field_name='seat__position_id', lookup_expr='exact')
+    circunscription = NumberFilter(
+        field_name='seat__circunscription_id', lookup_expr='exact')
 
     class Meta:
         model = Candidate
         fields = {
-            # 'source': ['exact'],
+            'sex': ['exact'],
             # 'editor': ['exact'],
             # 'reviewer': ['exact'],
         }
 
 
 class CandidateViewSet(ActionFileMixin, viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
-    queryset = Candidate.objects.all()
+    permission_classes = [IsFullEditorOrReadOnly]
+    queryset = Candidate.objects.all()\
+        .select_related('seat')\
+        .prefetch_related('licenses')
 
     pagination_class = CustomPagination
 
     filterset_class = CandidateFilter
 
-    filter_backends = [OrderingFilter, DjangoFilterBackend]
+    filter_backends = [OrderingFilter, DjangoFilterBackend, SearchFilter]
     # filter_backends = [
     #     OrderingAutoFilter, DjangoFilterBackend, UnaccentSearchFilter]
     search_fields = ["full_name_normalized"]
@@ -63,13 +68,16 @@ class CandidateViewSet(ActionFileMixin, viewsets.ModelViewSet):
         return queryset
 
     def get_serializer_class(self):
+
         action_serializer = {
-            'retrieve': CandidateFullSerializer,
+            'list': CandidatePublicSerializer,
+            'retrieve': CandidatePublicSerializer,
             'create': CandidateFullSerializer,
             'update': CandidateFullSerializer,
-            # 'add_file': NoteFileSerializer,
-            # 'patch': NoteCreateSerializer,
         }
+        if self.request.user.is_authenticated and self.request.user.is_staff:
+            action_serializer['list'] = CandidateSerializer
+            action_serializer['retrieve'] = CandidateFullSerializer
         return action_serializer.get(self.action, self.serializer_class)
 
     def create(self, request, *args, **kwargs):
@@ -107,7 +115,7 @@ class CandidateViewSet(ActionFileMixin, viewsets.ModelViewSet):
 
 
 class ProfessionalLicenseViewSet(viewsets.ModelViewSet):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [IsFullEditorOrReadOnly]
     queryset = ProfessionalLicense.objects.all()
     serializer_class = ProfessionalLicenseSerializer
 

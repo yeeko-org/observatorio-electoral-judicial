@@ -3,6 +3,7 @@ import os
 import re
 from oej.models import Position, Seat, Candidate
 from geo.models import Body, Power
+from django.conf import settings
 
 
 class LoadCandidates:
@@ -61,7 +62,7 @@ class LoadCandidates:
 
         positions = [
             {
-                "full_name": "Ministras y Ministros de la Suprema Corte de Justicia de la Nación",
+                "full_name": "Ministras y Ministros de la SCJN",
                 "name": "de la Suprema Corte de Justicia de la Nación",
                 "short_name": "SCJN",
                 "male_name": "Ministro",
@@ -70,6 +71,8 @@ class LoadCandidates:
                 "is_national": True,
                 "color": "#8681d3",
                 "color_light": "#cac6eb",
+                "total_seats": 9,
+                "total_candidates": 64,
             },
             {
                 "full_name": "Magistraturas del Tribunal de Disciplina Judicial",
@@ -81,6 +84,8 @@ class LoadCandidates:
                 "is_national": True,
                 "color": "#80c7bc",
                 "color_light": "#dcefeb",
+                "total_seats": 5,
+                "total_candidates": 38,
             },
             {
                 "full_name": "Magistraturas de la Sala Superior del TEPJF*",
@@ -93,6 +98,8 @@ class LoadCandidates:
                 "is_national": True,
                 "color": "#397c9a",
                 "color_light": "#bbd5de",
+                "total_seats": 2,
+                "total_candidates": 15,
             },
             {
                 "full_name": "Magistraturas de las Salas Regionales del TEPJF*",
@@ -105,6 +112,8 @@ class LoadCandidates:
                 "by_circunscription": True,
                 "color": "#f8c6b8",
                 "color_light": "#feeae7",
+                "total_seats": 15,
+                "total_candidates": 95,
             },
             {
                 "full_name": "Magistraturas de Circuito",
@@ -117,6 +126,8 @@ class LoadCandidates:
                 "by_circuit": True,
                 "color": "#c08ba5",
                 "color_light": "#eddee5",
+                "total_seats": 464,
+                "total_candidates": 1570,
             },
             {
                 "full_name": "Juezas y Jueces de Distrito",
@@ -129,6 +140,8 @@ class LoadCandidates:
                 "by_circuit": True,
                 "color": "#ffe365",
                 "color_light": "#fffae6",
+                "total_seats": 386,
+                "total_candidates": 1640,
             }
         ]
         for position in positions:
@@ -225,7 +238,10 @@ def main_load(collections=None):
             }
         ]
 
-    common_path = "G:\Mi unidad\YEEKO\Proyectos\oej\listas"
+    if settings.IS_LOCAL:
+        common_path = "G:\Mi unidad\YEEKO\Proyectos\oej\listas"
+    else:
+        common_path = "fixture/oej/listas"
     for collection in collections:
         output_json = os.path.join(common_path, collection["json_file"])
         extractor = LoadCandidates()
@@ -237,4 +253,14 @@ def main_load(collections=None):
 def init_load():
     extractor = LoadCandidates()
     extractor.load_base_data()
+
+
+def load_position():
+    collections = [
+        {
+            "body_short_name": "TDJ",
+            "json_file": "tdj.json"
+        }
+    ]
+    main_load(collections)
 

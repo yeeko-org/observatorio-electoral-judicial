@@ -175,16 +175,20 @@ class PDFTableExtractor:
 
 
 # Example usage
-if __name__ == "__main__":
-    common_path = "G:\Mi unidad\YEEKO\Proyectos\Disentir\listas"
-    # pdf_path = os.path.join(common_path, "listado_magis.pdf")
-    # output_json = os.path.join(common_path, "listado_magis.json")
-    # pdf_path = os.path.join(common_path, "scjn.pdf")
-    # output_json = os.path.join(common_path, "scjn.json")
-    pdf_path = os.path.join(common_path, "magis_superior.pdf")
-    output_json = os.path.join(common_path, "magis_superior.json")
-    # pdf_path = os.path.join(common_path, "listado_jueces.pdf")
-    # output_json = os.path.join(common_path, "listado_jueces.json")
-
+# if __name__ == "__main__":
+def extract_pdf_data(file_name: str):
+    common_path = "G:\Mi unidad\YEEKO\Proyectos\oej\listas"
+    pdf_path = os.path.join(common_path, f"{file_name}.pdf")
+    output_json = os.path.join(common_path, f"{file_name}.json")
     extractor = PDFTableExtractor(pdf_path)
     data = extractor.to_json(output_json)
+
+
+# from oej.cards.list_from_ine import extract_pdf_data
+# extract_pdf_data("listado_jueces")
+# extract_pdf_data("listado_magis")
+# extract_pdf_data("magis_superior")
+# extract_pdf_data("scjn")
+# extract_pdf_data("listado_magis")
+# extract_pdf_data("tdj")
+

@@ -21,7 +21,7 @@ def update_all_candidates():
     from oej.models import Candidate
     candidates = Candidate.objects.all()
     for candidate in candidates:
-        candidate.save()
+        candidate.save_image_from_url()
 
 
 def update_all_biographies():
@@ -31,12 +31,12 @@ def update_all_biographies():
         biography.save()
 
 
-def test_first_seat():
+def test_first_seat(seat_id=1):
     from django.utils import timezone
     from oej.sonar.sonar_research import SonarResearch
     from oej.models import Candidate
     candidates = Candidate.objects\
-        .filter(seat_id=1, gemini_text__isnull=True)\
+        .filter(seat_id=seat_id, gemini_text__isnull=True)\
         .order_by('id')
     sonar = SonarResearch(ai_company='sonar', engine='sonar-deep-research')
     for candidate in candidates[:20]:
@@ -49,6 +49,8 @@ def test_first_seat():
         duration = finish - start
         print(f"Duration: {duration}")
         # print(sonar.candidate.gemini_text)
+
+# test_first_seat(3)
 
 def apply_structure(ai_company='deepseek', engine='deepseek-chat'):
     # ai_company = 'openai'
