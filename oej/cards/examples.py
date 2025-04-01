@@ -24,6 +24,25 @@ def update_all_candidates():
         candidate.save_image_from_url()
 
 
+def update_num_list(position_id=2, circunscription_id=None):
+    from oej.models import Candidate
+    candidates = Candidate.objects\
+        .filter(seat__position_id=position_id)\
+        .order_by('-sex', 'last_name_1', 'last_name_2', 'first_name')
+    if circunscription_id:
+        candidates = candidates\
+            .filter(seat__circunscription_id=circunscription_id)
+    for (num, candidate) in enumerate(candidates, start=1):
+        num_list = str(num).zfill(2)
+        candidate.num_list = num_list
+        candidate.save()
+
+# update_num_list(2)
+def update_by_circunscription():
+    from oej.models import Circunscription
+    for circunscription in Circunscription.objects.all():
+        update_num_list(position_id=4, circunscription_id=circunscription.id)
+
 def update_all_biographies():
     from oej.models import Biography
     biographies = Biography.objects.all()
