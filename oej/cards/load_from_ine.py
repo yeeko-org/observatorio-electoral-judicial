@@ -31,6 +31,8 @@ class LoadData(LoadCandidates):
             id_ine = candidate.get("idCandidato")
             if normalized_name in saved_candidates:
                 candidate_obj = saved_candidates[normalized_name]
+                if candidate_obj.id_ine:
+                    continue
             else:
                 print(f"Candidate {normalized_name} not found ({id_ine})")
                 continue

@@ -224,15 +224,15 @@ class Candidate(models.Model):
         if not self.full_name:
             full_name = f"{self.first_name} {self.last_name_1} {self.last_name_2}"
             self.full_name = full_name.strip()
-        if self.ine_photo and (not self.photo or not self.photo_small):
-            self.save_image_from_url()
+        # if self.ine_photo and (not self.photo or not self.photo_small):
+        #     self.save_image_from_url()
         super(Candidate, self).save(*args, **kwargs)
 
     def get_photo_content(self):
+        import requests
         if self.photo:
             return self.photo.read()
         elif self.ine_photo:
-            import requests
             response = requests.get(self.ine_photo)
             if response.status_code == 200:
                 image_content = response.content
@@ -249,15 +249,23 @@ class Candidate(models.Model):
             return None
 
     def save_image_from_url(self):
+        if not self.ine_photo:
+            return
+        image_content = None
+        if not self.photo:
+            image_content = self.get_photo_content()
+
+        if not self.photo_small:
+            self.save_small_image(image_content)
+
+    def save_small_image(self, image_content):
         from PIL import Image, ImageDraw
         from io import BytesIO
 
-        if not self.ine_photo:
-            return
-
-        image_content = self.get_photo_content()
         if not image_content:
-            return
+            image_content = self.get_photo_content()
+            if not image_content:
+                return
 
         # Open the image
         img = Image.open(BytesIO(image_content))
