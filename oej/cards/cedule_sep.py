@@ -5,6 +5,7 @@ import time
 import logging
 from urllib.parse import urljoin
 from oej.models import ProfessionalLicense, Candidate
+from utils.common import text_normalizer
 
 
 class CedulaProfesionalFinder:
@@ -16,7 +17,8 @@ class CedulaProfesionalFinder:
     def __init__(
             self,
             base_url="https://www.cedulaprofesional.sep.gob.mx/cedula/",
-            candidate: Candidate | None = None
+            candidate: Candidate | None = None,
+            restart: bool = True,
     ):
         """
         Initialize the finder with the base URL of the search page.
@@ -41,6 +43,7 @@ class CedulaProfesionalFinder:
         }
         self.candidate: Candidate | None = candidate
         self.logger = self._setup_logger()
+        self.restart = restart
 
     def _setup_logger(self):
         """Set up a logger for this class"""
@@ -56,7 +59,7 @@ class CedulaProfesionalFinder:
     def _get_search_page(self):
         """Get the search page and extract necessary cookies and tokens"""
         search_url = urljoin(self.base_url, "presidencia/indexAvanzada.action")
-        self.logger.info(f"Getting search page: {search_url}")
+        # self.logger.info(f"Getting search page: {search_url}")
 
         try:
             response = self.session.get(
@@ -111,12 +114,13 @@ class CedulaProfesionalFinder:
             }
 
             # Log the exact payload being sent
-            self.logger.info(f"Search payload: {search_data}")
+            # self.logger.info(f"Search payload: {search_data}")
 
             # The search endpoint
             search_endpoint = urljoin(self.base_url, "buscaCedulaJson.action")
 
-            new_licences = self._try_search_endpoint(search_endpoint, search_data)
+            new_licences = self._try_search_endpoint(
+                search_endpoint, search_data)
 
             if not new_licences:
                 self.logger.error(f"No licenses found for {candidate}")
@@ -129,7 +133,7 @@ class CedulaProfesionalFinder:
                 other_data = licence.get("other_data", {})
                 name = other_data.get("nombre", "")
                 # licence["is_exact"] = name == candidate.first_name
-                is_exact = name == candidate.first_name
+                is_exact = text_normalizer(name) == candidate.first_name_normalized
                 licence["is_exact"] = is_exact
                 if is_exact:
                     some_is_exact = True
@@ -139,14 +143,27 @@ class CedulaProfesionalFinder:
             all_licences = [licence for licence in all_licences
                             if licence["is_exact"]]
 
-        ProfessionalLicense.objects.bulk_create(
-            [ProfessionalLicense(**licence) for licence in all_licences]
-        )
-        self.logger.info(f"Found {len(all_licences)} licenses for {candidate}")
+        if self.restart:
+            ProfessionalLicense.objects.filter(candidate=candidate).delete()
+            ProfessionalLicense.objects.bulk_create(
+                [ProfessionalLicense(**licence) for licence in all_licences]
+            )
+        else:
+            old_licences = ProfessionalLicense.objects.filter(
+                candidate=candidate).values_list('id_licence', flat=True)
+            for_create_licences = [
+                licence for licence in all_licences
+                if licence["id_licence"] not in old_licences
+            ]
+            if for_create_licences:
+                self.logger.info(f"Found new licence for {candidate}")
+            for licence in for_create_licences:
+                self.logger.info(f"{licence}")
+
 
     def _try_search_endpoint(self, endpoint, data):
         """Try to search using the given endpoint"""
-        self.logger.info(f"Trying search endpoint: {endpoint}")
+        # self.logger.info(f"Trying search endpoint: {endpoint}")
 
         try:
             response = self.session.post(
@@ -269,8 +286,8 @@ class CedulaProfesionalFinder:
         return licence_info
 
     def get_bulk_results(self, candidates):
-        self.logger.info(f"Processing bulk search for "
-                         f"{candidates.count()} people")
+        # self.logger.info(f"Processing bulk search for "
+        #                  f"{candidates.count()} people")
 
         for candidate in candidates:
             self.search_by_name(candidate)
@@ -281,6 +298,26 @@ def search_candidates():
         .distinct()
     finder = CedulaProfesionalFinder()
     finder.get_bulk_results(candidates)
+
+
+def search_special_candidates():
+    ids = [8, 12, 17, 26, 32, 46, 65, 75, 79]
+    candidates = Candidate.objects.filter(id__in=ids).distinct()
+    finder = CedulaProfesionalFinder(restart=True)
+    finder.get_bulk_results(candidates)
+
+
+def explore_new_cedules(pos_id=2):
+    ids = [8, 12, 17, 26, 32, 46]
+    # candidates = not Candidate.objects.exclude(id__in=ids).distinct()
+    all_candidates = Candidate.objects.filter(seat__position_id=pos_id)\
+        .exclude(id__in=ids).distinct()
+    # candidates = []
+    # for candidate in Candidate.objects.all():
+    #     if candidate.first_name != candidate.first_name_normalized:
+    #         candidates.append(candidate)
+    finder = CedulaProfesionalFinder(restart=True)
+    finder.get_bulk_results(all_candidates)
 
 
 def update_titles():

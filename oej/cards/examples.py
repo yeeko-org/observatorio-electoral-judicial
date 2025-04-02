@@ -130,3 +130,9 @@ def reset_status_candidates():
         sources=None,
         status_register=None,
     )
+
+
+def explore_cedules():
+    from oej.cards.cedule_sep import explore_new_cedules
+    explore_new_cedules(1)
+
