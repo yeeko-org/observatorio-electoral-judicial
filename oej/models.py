@@ -176,6 +176,7 @@ class Candidate(models.Model):
     judgments = models.TextField(blank=True, null=True)
     attention_notes_ia = models.TextField(blank=True, null=True)
     sources = models.JSONField(blank=True, null=True)
+    other_sources = models.TextField(blank=True, null=True)
 
     ine_data = models.JSONField(
         blank=True, null=True, verbose_name='Datos INE')

@@ -133,6 +133,30 @@ def reset_status_candidates():
 
 
 def explore_cedules():
-    from oej.cards.cedule_sep import explore_new_cedules
-    explore_new_cedules(1)
+    from oej.cards.cedule_sep import (
+        search_special_candidates, explore_new_cedules)
+    search_special_candidates()
+    explore_new_cedules(2)
+    explore_new_cedules(4)
+
+
+def recover_references():
+    from oej.models import Candidate
+    from oej.sonar.sonar_research import SonarResearch
+    sonar = SonarResearch(ai_company='openai', engine='gpt-4o-2024-11-20')
+    candidates = Candidate.objects.filter(
+        more_info_text__isnull=False, more_info_ia__isnull=True)
+    for candidate in candidates[:4]:
+        sonar.build_prompt("oej/sonar/recover_references.txt")
+        user_prompt = (f"REPORTE COMPLETO:\n\n{candidate.gemini_text}\n\n"
+                       f"HALLAZGOS:\n\n{candidate.more_info_text}")
+        result = sonar.send_prompt(user_prompt)
+        if not result:
+            print(f"No result for candidate {candidate}")
+            continue
+        candidate.more_info_ia = result
+        candidate.save()
+        print(f"Candidate {candidate} updated")
+
+
 
