@@ -59,4 +59,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "last_name",
             "full_editor",
             "full_name",
+            "initials",
+            "color",
+            "organization",
         ]

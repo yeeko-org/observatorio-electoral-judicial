@@ -4,6 +4,15 @@ from django.db import models
 
 class User(AbstractUser):
     phone = models.CharField(max_length=100, blank=True)
+    initials = models.CharField(
+        max_length=10, blank=True, null=True,
+        help_text='Iniciales del usuario')
+    color = models.CharField(
+        max_length=30, blank=True, null=True,
+        help_text='Color del usuario')
+    organization = models.CharField(
+        max_length=100, blank=True, null=True,
+        help_text='Organización del usuario')
     full_editor = models.BooleanField(
         default=False, verbose_name='Es revisor',
         help_text='Puede editar cualquier contenido')

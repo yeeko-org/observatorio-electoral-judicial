@@ -2,6 +2,7 @@ from django.db import models
 from geo.models import State, Body, Power, Circunscription
 from utils.common import text_normalizer
 from django.core.files.base import ContentFile
+from profile_auth.models import User
 
 
 class Biography(models.Model):
@@ -196,6 +197,12 @@ class Candidate(models.Model):
     status_validation = models.ForeignKey(
         StatusControl, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates_laboratorio')
+    user_register = models.ForeignKey(
+        User, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='candidates_register')
+    user_validation = models.ForeignKey(
+        User, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='candidates_validation')
 
     price = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)

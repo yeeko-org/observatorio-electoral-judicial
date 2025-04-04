@@ -33,8 +33,8 @@ class CandidateFilter(FilterSet):
         model = Candidate
         fields = {
             'sex': ['exact'],
-            # 'editor': ['exact'],
-            # 'reviewer': ['exact'],
+            'user_register': ['exact'],
+            'user_validation': ['exact'],
         }
 
 
