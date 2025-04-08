@@ -183,6 +183,8 @@ class Candidate(models.Model):
         blank=True, null=True, verbose_name='Datos INE')
     ine_cv = models.URLField(
         blank=True, null=True, verbose_name='URL del CV INE')
+    ine_cv_text = models.TextField(
+        blank=True, null=True, verbose_name='Texto del CV INE')
     ine_photo = models.URLField(
         blank=True, null=True, verbose_name='URL de la foto del INE')
     num_list = models.CharField(

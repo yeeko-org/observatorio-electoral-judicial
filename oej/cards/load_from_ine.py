@@ -31,7 +31,7 @@ class LoadData(LoadCandidates):
             id_ine = candidate.get("idCandidato")
             if normalized_name in saved_candidates:
                 candidate_obj = saved_candidates[normalized_name]
-                if candidate_obj.id_ine:
+                if candidate_obj.id_ine and candidate_obj.ine_cv:
                     continue
             else:
                 print(f"Candidate {normalized_name} not found ({id_ine})")
@@ -44,7 +44,7 @@ class LoadData(LoadCandidates):
                 candidate_obj.ine_photo = img_url
             if pdf_name := candidate.get("descripcionHLC"):
                 pdf_url = f"{self.ine_path}/documentos/cv/{pdf_name}"
-                candidate_obj.pdf_url = pdf_url
+                candidate_obj.ine_cv = pdf_url
             candidate_obj.id_ine = id_ine
             candidate_obj.num_list = num_list
             candidate_obj.ine_data = candidate

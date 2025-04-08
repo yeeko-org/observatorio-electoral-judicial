@@ -12,6 +12,8 @@ Necesito ayuda para construir su amplio y extenso perfil buscando en la web y en
 -Posibles conflictos de interés, escándalos y señalamientos de no idoneidad para el cargo o de posible corrupción; así como vínculos con grupos de poder, partidos políticos u organizaciones criminales.
 -Toda la información relevante presente en los medios de comunicación sobre “{candidate_name}”
 
+Excluye de las fuentes de información la plataforma Conóceles del INE (Instituto Nacional Electoral) que tiene el subdominio de https://candidaturaspoderjudicial.ine.mx/.
+
 Examina el contexto de cada resultado para descartar homonimias, asegurando que la información corresponda exclusivamente a la candidata.
 
 ALGUNOS PASOS SUGERIDOS:
