@@ -14,6 +14,7 @@ router.register(r'professional_license',
 urlpatterns = [
     path('login/', UserLoginAPIView.as_view(), name='login'),
     path('catalogs/', include('api.views.catalogs.urls')),
+    path('oej/', include('gossip.api.urls')),
     # path('space_time/', include('api.views.space_time.urls')),
     path('', include(router.urls)),
 ]

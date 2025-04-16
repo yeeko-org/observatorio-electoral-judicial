@@ -19,10 +19,12 @@ def get_deep_research_data(seat_id=1, limit=20):
         # print(sonar.candidate.gemini_text)
 
 
-# get_deep_research_data(2, 1)
+# get_deep_research_data(2, 20)
 
 
-def apply_structure(ai_company='deepseek', engine='deepseek-chat', limit=200):
+def apply_structure(
+        ai_company='deepseek', engine='deepseek-chat',
+        pos_id=1, limit=200):
     # ai_company = 'openai'
     # engine = 'gpt-4o-2024-11-20'
     import re
@@ -34,8 +36,11 @@ def apply_structure(ai_company='deepseek', engine='deepseek-chat', limit=200):
     academic_subtitle = "\nTrayectoria académica (resumen):\n"
     deepseek = SonarResearch(
         ai_company=ai_company, engine=engine, to_json=True)
+    # candidates = Candidate.objects\
+    #     .filter(gemini_text__isnull=False, seat__position_id=pos_id)
     candidates = Candidate.objects\
-        .filter(gemini_text__isnull=False, academic_text__isnull=True)
+        .filter(gemini_text__isnull=False,
+                academic_text__isnull=True, seat__position_id=pos_id)
     st_created = StatusControl.objects.get(name='created')
     for candidate in candidates[:limit]:
         start = timezone.now()
@@ -72,5 +77,5 @@ def apply_structure(ai_company='deepseek', engine='deepseek-chat', limit=200):
 
 
 # apply_structure('deepseek', 'deepseek-chat')
-# apply_structure('openai', 'gpt-4o-2024-11-20', 1)
+# apply_structure('openai', 'gpt-4o-2024-11-20', 2, 1000)
 

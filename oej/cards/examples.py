@@ -125,5 +125,5 @@ def load_pdf_content(pos_id=2, limit=10):
         candidate.ine_cv_text = all_text
         candidate.save()
 
-load_pdf_content(2, 200)
+# load_pdf_content(2, 200)
 
