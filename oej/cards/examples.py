@@ -124,5 +124,55 @@ def load_pdf_content(pos_id=2, limit=10):
         candidate.ine_cv_text = all_text
         candidate.save()
 
-# load_pdf_content(2, 200)
+# load_pdf_content(4, 200)
+
+
+
+def build_candidate_json_report():
+    import json
+    import os
+    import csv
+    from oej.models import Candidate
+
+    final_data = []
+    candidates = Candidate.objects.filter(
+        seat__position__by_circunscription=False).order_by("id")
+    for candidate in candidates:
+        social_accounts = candidate.social_accounts.all()
+        facebook = social_accounts.filter(
+            social_network__name="Facebook").first()
+        twitter = social_accounts.filter(
+            social_network__name="Twitter").first()
+        instagram = social_accounts.filter(
+            social_network__name="Instagram").first()
+        candidate_data = {
+            "id": candidate.id,
+            "first_name": candidate.first_name,
+            "last_name_1": candidate.last_name_1,
+            "last_name_2": candidate.last_name_2,
+            "full_name": candidate.full_name,
+            "full_name_normalized": candidate.full_name_normalized,
+            "sex": candidate.sex,
+            "position": candidate.seat.position.full_name,
+            "facebook": facebook.url if facebook else None,
+            "twitter": twitter.url if twitter else None,
+            "instagram": instagram.url if instagram else None,
+        }
+        final_data.append(candidate_data)
+
+    # EXPORT DATA TO CSV
+    csv_file_path = 'fixture/candidates.csv'
+    with open(csv_file_path, 'w', newline='', encoding='utf-8') as csv_file:
+        if final_data:
+            fieldnames = final_data[0].keys()
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for candidate in final_data:
+                writer.writerow(candidate)
+
+    # EXPORT DATA TO JSON
+    json_file_path = 'fixture/candidates.json'
+    with open(json_file_path, 'w', encoding='utf-8') as json_file:
+        json.dump(final_data, json_file, ensure_ascii=False, indent=4)
 

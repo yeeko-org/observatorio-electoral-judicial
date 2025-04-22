@@ -108,8 +108,7 @@ class Network:
         SocialNetwork.objects.create(name="Otras redes")
         for network in self.new_network_types:
             name = network["name"]
-            name = name.capitalize()
-            social_network = SocialNetwork(name=name)
+            social_network = SocialNetwork(name=name.capitalize())
             if icons < 3:
                 social_network.icon = f"{name}_blanco.png"
             social_network.keywords = network["keywords"]
@@ -132,7 +131,7 @@ class Network:
                     social_network=social_network,
                     url=social_account.get("descripcionRed"),
                 )
-            candidate.social_networks = social_networks
+            candidate.accounts = social_networks
             candidate.save()
 
 

@@ -1,10 +1,10 @@
 
-def get_deep_research_data(seat_id=1, limit=20):
+def get_deep_research_data(pos_id=1, limit=20):
     from django.utils import timezone
     from oej.sonar.sonar_research import SonarResearch
     from oej.models import Candidate
     candidates = Candidate.objects\
-        .filter(seat_id=seat_id, gemini_text__isnull=True)\
+        .filter(seat__position_id=pos_id, gemini_text__isnull=True)\
         .order_by('id')
     sonar = SonarResearch(ai_company='sonar', engine='sonar-deep-research')
     for candidate in candidates[:limit]:
@@ -19,7 +19,7 @@ def get_deep_research_data(seat_id=1, limit=20):
         # print(sonar.candidate.gemini_text)
 
 
-# get_deep_research_data(2, 20)
+# get_deep_research_data(4, 20)
 
 
 def apply_structure(
@@ -77,5 +77,5 @@ def apply_structure(
 
 
 # apply_structure('deepseek', 'deepseek-chat')
-# apply_structure('openai', 'gpt-4o-2024-11-20', 2, 1000)
+# apply_structure('openai', 'gpt-4o-2024-11-20', 4, 1000)
 

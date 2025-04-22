@@ -194,7 +194,7 @@ class Candidate(models.Model):
     sources = models.JSONField(blank=True, null=True)
     other_sources = models.TextField(blank=True, null=True)
 
-    social_accounts = models.JSONField(
+    accounts = models.JSONField(
         blank=True, null=True, verbose_name='Redes sociales')
     ine_data = models.JSONField(
         blank=True, null=True, verbose_name='Datos INE')
