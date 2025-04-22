@@ -13,14 +13,16 @@ class CustomUserAdmin(UserAdmin):
     fieldsets = (
         (None, {'fields': ('username', 'password')}),
         ('Información personal', {'fields': (
-            'first_name', 'last_name', 'email', 'phone', 'organization')}),
+            'first_name', 'last_name', 'email', 'initials', 'organization')}),
         ('Permissions', {
             'fields': ('is_superuser', 'is_staff', 'full_editor', 'is_active'),
         }),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
     # ) + UserAdmin.fieldsets
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff')
+    list_display = (
+        'username', 'email', 'first_name', 'last_name', 'organization',
+        'is_staff')
     search_fields = ('username', 'email', 'first_name', 'last_name')
     ordering = ('username',)
     list_filter = (

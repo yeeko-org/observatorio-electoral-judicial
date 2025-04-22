@@ -64,6 +64,21 @@ class StatusControl(models.Model):
         verbose_name_plural = "Status de control (TODOS)"
 
 
+class SocialNetwork(models.Model):
+    name = models.CharField(max_length=255)
+    icon = models.CharField(max_length=40, blank=True, null=True)
+    keywords = models.JSONField(
+        blank=True, null=True,
+        help_text="Palabras claves para la búsqueda")
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Red social'
+        verbose_name_plural = 'Redes sociales'
+
+
 class Position(models.Model):
     name = models.CharField(max_length=255)
     full_name = models.CharField(max_length=255, blank=True, null=True)
@@ -179,6 +194,8 @@ class Candidate(models.Model):
     sources = models.JSONField(blank=True, null=True)
     other_sources = models.TextField(blank=True, null=True)
 
+    social_accounts = models.JSONField(
+        blank=True, null=True, verbose_name='Redes sociales')
     ine_data = models.JSONField(
         blank=True, null=True, verbose_name='Datos INE')
     ine_cv = models.URLField(
@@ -404,3 +421,18 @@ class ProfessionalLicense(models.Model):
     class Meta:
         verbose_name = 'Licencia Profesional'
         verbose_name_plural = 'Licencias Profesionales'
+
+
+class SocialNetworkAccount(models.Model):
+    candidate = models.ForeignKey(
+        Candidate, on_delete=models.CASCADE, related_name='social_accounts')
+    social_network = models.ForeignKey(
+        SocialNetwork, on_delete=models.CASCADE, related_name='accounts')
+    url = models.URLField()
+    page_id = models.CharField(
+        max_length=255, blank=True, null=True,
+        verbose_name='ID de la página')
+
+    def __str__(self):
+        return f"{self.candidate} - {self.social_network} - {self.url}"
+

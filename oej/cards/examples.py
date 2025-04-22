@@ -1,6 +1,5 @@
 # main()
 
-
 def get_find_names(first_name):
     import re
     find_names = first_name.split(" ")
