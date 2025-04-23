@@ -28,6 +28,16 @@ class CandidateFilter(FilterSet):
         field_name='seat__position_id', lookup_expr='exact')
     circunscription = NumberFilter(
         field_name='seat__circunscription_id', lookup_expr='exact')
+    own_profiles = BooleanFilter(method='filter_own_profiles')
+
+    def filter_own_profiles(self, queryset, name, value):
+        from django.db.models import Q
+        if value:
+            user = self.request.user
+            return queryset.filter(
+                Q(user_register=user) | Q(user_validation=user)
+            )
+        return queryset
 
     class Meta:
         model = Candidate

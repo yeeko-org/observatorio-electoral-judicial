@@ -60,13 +60,14 @@ def init_users(create=True):
 def assign_users(pos_id=2):
     from profile_auth.models import User
     from oej.models import Candidate
-    initials = ["Vi", "Au", "An", "AP"]
-    users = User.objects.filter(initials__in=initials)
+    users = User.objects.filter(organization__isnull=False)\
+        .order_by('?')
     candidates = Candidate.objects.filter(
         seat__position_id=pos_id)\
         .order_by('?')
+    users_count = users.count()
     for (idx, candidate) in enumerate(candidates):
-        user_idx = idx % len(initials)
+        user_idx = idx % users_count
         candidate.user_register = users[user_idx]
         candidate.save()
 
@@ -74,13 +75,14 @@ def assign_users(pos_id=2):
 def assign_validation(pos_id=2):
     from profile_auth.models import User
     from oej.models import Candidate
-    organizations = ["Laboratorio", "Práctica"]
+    organizations = ["Laboratorio", "Práctica", "México Evalúa"]
     # initials = ["Vi", "Au", "An", "AP"]
     for org in organizations:
-        users = User.objects.filter(organization=org)
+        users = User.objects.filter(organization__isnull=False)\
+            .exclude(organization=org)\
+            .order_by('?')
         candidates = Candidate.objects\
-            .filter(seat__position_id=pos_id)\
-            .exclude(user_register__organization=org)\
+            .filter(seat__position_id=pos_id, user_register__organization=org)\
             .order_by('?')
         for (idx, candidate) in enumerate(candidates):
             user_idx = idx % len(users)

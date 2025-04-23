@@ -135,8 +135,7 @@ def build_candidate_json_report():
     from oej.models import Candidate
 
     final_data = []
-    candidates = Candidate.objects.filter(
-        seat__position__by_circunscription=False).order_by("id")
+    candidates = Candidate.objects.all().order_by("id")
     for candidate in candidates:
         social_accounts = candidate.social_accounts.all()
         facebook = social_accounts.filter(
