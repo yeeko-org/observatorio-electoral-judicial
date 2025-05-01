@@ -1,5 +1,7 @@
 from django.db import models
-from geo.models import State, Body, Power, Circunscription
+from geo.models import (
+    State, Body, Power, Circunscription, JudicialElectoralDistrict, Topic,
+    Anomaly)
 from utils.common import text_normalizer
 from django.core.files.base import ContentFile
 from profile_auth.models import User
@@ -91,6 +93,8 @@ class Position(models.Model):
     description = models.TextField(blank=True, null=True)
     is_national = models.BooleanField(default=False)
     by_circuit = models.BooleanField(default=False)
+    acronym = models.CharField(
+        max_length=10, blank=True, null=True)
     total_seats = models.IntegerField(
         default=0, verbose_name='Número de cargos')
     total_candidates = models.IntegerField(
@@ -111,17 +115,10 @@ class Position(models.Model):
         verbose_name_plural = 'Posiciones'
 
 
-class Topic(models.Model):
-    name = models.CharField(max_length=255)
-    description = models.TextField(blank=True, null=True)
-    is_mix = models.BooleanField(default=False)
-
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = 'Materia'
-        verbose_name_plural = 'Materias'
+SEX_CHOICES = (
+    ("Hombre", "Hombre"),
+    ("Mujer", "Mujer"),
+)
 
 
 class Seat(models.Model):
@@ -133,7 +130,35 @@ class Seat(models.Model):
     circunscription = models.ForeignKey(
         Circunscription, on_delete=models.CASCADE, blank=True, null=True,
         related_name='seats')
-    topics = models.ManyToManyField(Topic, related_name='seats')
+    judicial_district = models.ForeignKey(
+        JudicialElectoralDistrict, on_delete=models.CASCADE,
+        blank=True, null=True, related_name='seats')
+    topic = models.ForeignKey(
+        Topic, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='seats')
+    topic_index = models.IntegerField(
+        blank=True, null=True, verbose_name='Índice de materia')
+    total_offices = models.IntegerField(
+        default=0, verbose_name='Número de cargos disponibles')
+    squares_hombres = models.IntegerField(
+        default=0, verbose_name='Número de espacios para hombres')
+    squares_mujeres = models.IntegerField(
+        default=0, verbose_name='Número de espacios para mujeres')
+    plus_squares = models.IntegerField(
+        default=0, verbose_name='Espacios de más (+) o de menos (-)')
+    real_hombres = models.IntegerField(
+        default=0, verbose_name='Número de hombres compitiendo')
+    real_mujeres = models.IntegerField(
+        default=0, verbose_name='Número de mujeres compitiendo')
+    candidates_data = models.JSONField(
+        blank=True, null=True, verbose_name='Datos de candidatos')
+    probability_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Probabilidad de hombres')
+    probability_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Probabilidad de mujeres')
+
 
     def __str__(self):
         return f"{self.position} - {self.state} - {self.circunscription}"
@@ -144,10 +169,6 @@ class Seat(models.Model):
 
 
 class Candidate(models.Model):
-    SEX_CHOICES = (
-        ("Hombre", "Hombre"),
-        ("Mujer", "Mujer"),
-    )
 
     id_ine = models.IntegerField(blank=True, null=True)
     first_name = models.CharField(max_length=255)
@@ -226,6 +247,14 @@ class Candidate(models.Model):
     price = models.DecimalField(
         max_digits=10, decimal_places=2, blank=True, null=True)
     price_details = models.JSONField(blank=True, null=True)
+
+    anomaly = models.ForeignKey(
+        Anomaly, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='candidates')
+    probability = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Probabilidad de ser candidato')
+
 
     @property
     def position(self):

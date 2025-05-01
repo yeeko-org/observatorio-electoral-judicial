@@ -21,6 +21,7 @@ def update_all_candidates():
     candidates = Candidate.objects.all()
     for candidate in candidates:
         candidate.save_image_from_url()
+        candidate.save()
 
 
 def update_num_list(position_id=2, circunscription_id=None):
@@ -175,3 +176,19 @@ def build_candidate_json_report():
     with open(json_file_path, 'w', encoding='utf-8') as json_file:
         json.dump(final_data, json_file, ensure_ascii=False, indent=4)
 
+
+
+
+def main():
+    from oej.cards.explore_cases import ResearchCases
+    research = ResearchCases()
+    research.pre_load()
+    research.load_districts()
+    research.load_candidates()
+    research.process_all_districts()
+
+
+def start_simulator():
+    from oej.cards.simulator import ElectionSimulator
+    simulator = ElectionSimulator()
+    simulator.simulate_elections()

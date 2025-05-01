@@ -112,18 +112,24 @@ class Power(models.Model):
 
 
 class JudicialElectoralDistrict(models.Model):
-    name = models.CharField(max_length=255)
+    circuit = models.IntegerField(
+        verbose_name=u"Circuito electoral", blank=True, null=True)
     number = models.IntegerField()
-    federal_district = models.IntegerField(
-        verbose_name="Distrito electoral", blank=True, null=True)
+    # federal_district = models.IntegerField(
+    #     verbose_name="Distrito electoral", blank=True, null=True)
     state = models.ForeignKey(
-        State, on_delete=models.CASCADE,
+        State, on_delete=models.CASCADE, blank=True, null=True,
         related_name='judicial_electoral_districts')
+    second_state = models.ForeignKey(
+        State, on_delete=models.CASCADE,
+        blank=True, null=True,
+        related_name='judicial_electoral_districts_2')
 
     def __str__(self):
-        return f"{self.name} - {self.number} - {self.state}"
+        return f"{self.number} - {self.circuit}"
 
     class Meta:
+        unique_together = ('circuit', 'number')
         verbose_name = 'Distrito Electoral Judicial'
         verbose_name_plural = 'Distritos Electorales Judiciales'
 
@@ -142,3 +148,29 @@ class Section(models.Model):
     class Meta:
         verbose_name = 'Sección'
         verbose_name_plural = 'Secciones'
+
+
+class Topic(models.Model):
+    name = models.CharField(max_length=255)
+    short_name = models.CharField(max_length=40, blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Materia'
+        verbose_name_plural = 'Materias'
+
+
+class Anomaly(models.Model):
+    key_name = models.CharField(max_length=80, primary_key=True)
+    name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Anomalía'
+        verbose_name_plural = 'Anomalías'
+

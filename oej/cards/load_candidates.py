@@ -11,7 +11,6 @@ class LoadCandidates:
     def __init__(self):
         self.data = []
         self.position: Position | None = None
-        pass
 
     def load_base_data(self):
         powers = [
@@ -215,7 +214,8 @@ class LoadCandidates:
                 sex=final_sex,
                 seat=seat,
             )
-            candidate.powers.set(powers_obj)
+            for power in powers_obj:
+                candidate.powers.add(power)
 
         # Candidate.objects.bulk_create(candidates)
 
@@ -260,6 +260,16 @@ def load_position():
         {
             "body_short_name": "TDJ",
             "json_file": "tdj.json"
+        }
+    ]
+    main_load(collections)
+
+
+def load_many():
+    collections = [
+        {
+            "body_short_name": "MC",
+            "json_file": "magistados.json"
         }
     ]
     main_load(collections)

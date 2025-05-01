@@ -1,9 +1,9 @@
 from django.contrib import admin
 
 from .models import (
-    Biography, StatusControl, Position, Topic, Seat, Candidate, ProfessionalLicense
+    Biography, StatusControl, Position, Seat, Candidate, ProfessionalLicense
 )
-from geo.models import Body, Power
+from geo.models import Body, Power, Topic
 
 
 @admin.register(Biography)
