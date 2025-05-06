@@ -1,5 +1,6 @@
 from django.db import models
 from django.db.models import JSONField
+from django.db.models import Sum
 
 
 class Circunscription(models.Model):
@@ -124,6 +125,16 @@ class JudicialElectoralDistrict(models.Model):
         State, on_delete=models.CASCADE,
         blank=True, null=True,
         related_name='judicial_electoral_districts_2')
+
+    def aggregations(self, position=None):
+        fields = ['total_offices', 'real_hombres', 'real_mujeres',
+                  'selected_hombres', 'selected_mujeres',
+                  'offices_hombres', 'offices_mujeres']
+        query = { aggr: Sum(aggr) for aggr in fields }
+        seats = self.seats.all()
+        if position:
+            seats = seats.filter(position=position)
+        return seats.aggregate(**query)
 
     def __str__(self):
         return f"{self.number} - {self.circuit}"

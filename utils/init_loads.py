@@ -89,3 +89,15 @@ def assign_validation(pos_id=2):
             candidate.user_validation = users[user_idx]
             candidate.save()
 
+
+def relate_state_circuit():
+    from geo.models import State, JudicialElectoralDistrict
+
+    circuits = { state.circuit: state for state in State.objects.all() }
+    for jed in JudicialElectoralDistrict.objects.all():
+        if jed.state:
+            continue
+        jed.state = circuits[jed.circuit]
+        jed.save()
+        print(f"Jed {jed} related to {jed.state}")
+

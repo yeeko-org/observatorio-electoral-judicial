@@ -1,6 +1,11 @@
 import json
+
+from matplotlib.style.core import available
+
 from oej.cards.load_candidates import LoadCandidates
 from django.conf import settings
+from oej.models import Seat, Position, Candidate
+from geo.models import JudicialElectoralDistrict
 
 
 class ResearchCases(LoadCandidates):
@@ -35,6 +40,7 @@ class ResearchCases(LoadCandidates):
     ]
 
     def __init__(self):
+        from oej.ballots.simulator import ElectionSimulator
         super().__init__()
         self.base_path = "fixture/all_distritos.json"
         self.data = {}
@@ -43,6 +49,9 @@ class ResearchCases(LoadCandidates):
         self.pos_dict = { }
         self.district = None
         self.saved_candidates = {}
+        self.positions_obj = Position.objects.filter(by_circuit=True)
+        self.simulator = ElectionSimulator(False)
+
 
     def save_candidates(self):
         import requests
@@ -63,24 +72,13 @@ class ResearchCases(LoadCandidates):
 
     def pre_load(self):
         from geo.models import Anomaly
-        from oej.models import Position, Body
+        from oej.models import Body
         for position in self.positions:
             body = Body.objects.get(short_name=position["body"])
             pos = Position.objects.get(body=body)
             pos.acronym = position["acronym"]
             pos.save()
             position["pos"] = pos
-        # double_tie: Doble empate, 1 cargo, pero 1 casilla y 1 candidato por
-        # cada sexo
-        # winner: Victoria asegurada. Hay 1, 2 o 3 cargos, 1 candidato y una
-        # casilla de un sexo y más de 1 del otro sexo.
-        # looser: Derrota asegurada: el escenario anterior con solo 1 cargo
-        # disponible y varios competidores de un sexo y solo uno del otro.
-        # Victoria muy probable de un sexo: hay mucho menos candidaturas de
-        # un sexo que del otro y ambos tienen 1 recuadro, pero solo existe 1
-        # cargo en total
-        # easy_victory: más del 50% de probabilidad de victoria
-        # hard_victory: más de 5 competidores.
         anomalies = [
             {
                 "key_name": "same_quantity",
@@ -94,26 +92,44 @@ class ResearchCases(LoadCandidates):
             {
                 "key_name": "winner",
                 "name": "Victoria asegurada",
-                "description": "Hay 1, 2 o 3 cargos, 1 candidato y una casilla de un sexo y más de 1 del otro sexo.",
+                "description": "Hay 1, 2 o 3 cargos, 1 candidato y una casilla "
+                               "de un sexo y más de 1 del otro sexo.",
             },
             {
                 "key_name": "looser",
                 "name": "Derrota asegurada",
-                "description": "El escenario anterior con solo 1 cargo disponible y varios competidores de un sexo y solo uno del otro.",
+                "description": (
+                    "El escenario anterior con solo 1 cargo disponible y "
+                    "varios competidores de un sexo y solo uno del otro."),
             },
             {
                 "key_name": "easy_victory",
-                "name": "Victoria fácil",
-                "description": "Más del 50% de probabilidad de victoria",
+                "name": "Victoria por cantidad",
+                "description": "Ganará porque hay pocas personas de su sexo"
+                               " y muchos del otro sexo",
             },
             {
                 "key_name": "hard_victory",
-                "name": "Victoria difícil",
-                "description": "Más de 5 competidores.",
+                "name": "Derrota por cantidad",
+                "description": "Perderá porque hay muchas personas de su sexo "
+                               "y pocas del otro sexo",
             },
+            {
+                "key_name": "forced_looser",
+                "name": "Derrota forzada",
+                "description": "Perderá por reglas de paridad de género",
+            }
         ]
         for anomaly in anomalies:
-            Anomaly.objects.get_or_create(**anomaly)
+            try:
+                anomaly_ob = Anomaly.objects.get(key_name=anomaly["key_name"])
+            except Anomaly.DoesNotExist:
+                anomaly_ob = Anomaly(key_name=anomaly["key_name"])
+            anomaly_ob.name = anomaly["name"]
+            anomaly_ob.description = anomaly.get("description", "")
+            anomaly_ob.save()
+
+
 
     def load_districts(self):
         import json
@@ -132,7 +148,6 @@ class ResearchCases(LoadCandidates):
                 self.process_district()
 
     def load_candidates(self):
-        from oej.models import Candidate
         import os
 
         if settings.IS_LOCAL:
@@ -152,8 +167,6 @@ class ResearchCases(LoadCandidates):
             c.id_ine: c for c in Candidate.objects.all()}
 
     def process_district(self):
-        from geo.models import Topic, JudicialElectoralDistrict
-        from oej.models import Seat, Candidate
 
         # colores_plural_acronym
         # cargos_plural_acronym
@@ -174,10 +187,10 @@ class ResearchCases(LoadCandidates):
 
     def process_specialty(self, specialty, idx):
         from geo.models import Topic
-        from oej.models import Seat
 
         acronym = self.position["acronym"]
-        topic, _ = Topic.objects.get_or_create(name=specialty["nombre"])
+        speciality_name = clean_name(specialty["nombre"])
+        topic, _ = Topic.objects.get_or_create(name=speciality_name)
         seat, _ = Seat.objects.get_or_create(
             position=self.position["pos"],
             topic=topic,
@@ -197,10 +210,8 @@ class ResearchCases(LoadCandidates):
             candidates = self.district.get(f"{acronym}_{sex['gender']}", [])
             current_candidates = []
             for cand in candidates:
-                specialty_name = cand.get("especialidad")
-                specialty_name = specialty_name.replace("\n", " ")
-                specialty_name = specialty_name.strip()
-                if specialty_name == specialty["nombre"]:
+                cand_speciality_name = clean_name(cand.get("especialidad"))
+                if speciality_name == cand_speciality_name:
                     current_candidates.append(cand)
                     cand_obj = self.build_candidate(cand, seat)
             candidates_data.extend(current_candidates)
@@ -210,7 +221,8 @@ class ResearchCases(LoadCandidates):
         seat.save()
 
     def build_candidate(self, candidate_simple, seat):
-        speciality = candidate_simple.get("especialidad")
+        speciality_name = candidate_simple.get("especialidad")
+        speciality_name = clean_name(speciality_name)
         url = candidate_simple.get("url")
         # "https://candidaturaspoderjudicial.ine.mx/detalleCandidato/54854/11"
         if url:
@@ -235,11 +247,11 @@ class ResearchCases(LoadCandidates):
 
         candidate_data = candidate_simple.copy()
         candidate_data.update(candidate)
-        candidate_data["especialidad"] = speciality
+        candidate_data["especialidad"] = speciality_name
         return self.save_candidate(candidate_data, seat)
 
     def save_candidate(self, candidate_data, seat):
-        from oej.models import Candidate, Power
+        from oej.models import Power
         powers = candidate_data.get("propuesta", [])
         powers_obj = Power.objects.filter(key_name__in=powers)
         sex = candidate_data.get("sexo", "").strip()
@@ -272,16 +284,27 @@ class ResearchCases(LoadCandidates):
         return candidate
 
     def analyze_seats(self):
-        from oej.models import Seat
+
         all_seats = Seat.objects.filter(judicial_district__isnull=False)
+        Candidate.objects.filter(anomaly__isnull=False).update(
+            anomaly=None, probability=0)
         for seat in all_seats:
+            # seat.save()
             total_real = seat.real_hombres + seat.real_mujeres
-            total_squares = seat.squares_hombres + seat.squares_mujeres
-            if total_real == total_squares:
+            ready = { "hombres": False, "mujeres": False }
+            if total_real == seat.total_offices:
                 seat.candidates.all().update(
                     anomaly_id="same_quantity", probability=100)
-                seat.probability_hombres = 100
-                seat.probability_mujeres = 100
+                if seat.real_mujeres == 0:
+                    seat.probability_hombres = 100
+                    seat.probability_mujeres = 0
+                elif seat.real_hombres == 0:
+                    seat.probability_mujeres = 100
+                    seat.probability_hombres = 0
+                else:
+                    seat.probability_hombres = 100
+                    seat.probability_mujeres = 100
+                seat.save()
                 continue
             if seat.total_offices == 1:
                 if seat.real_mujeres == 1 and seat.real_hombres == 1:
@@ -289,40 +312,211 @@ class ResearchCases(LoadCandidates):
                         anomaly_id="double_tie", probability=50)
                     seat.probability_hombres = 50
                     seat.probability_mujeres = 50
+                    seat.save()
                     continue
-            ready = {"hombres": False, "mujeres": False}
-            for (idx, sex) in enumerate(self.sexs):
-                if ready.get(sex["plural"]):
-                    continue
-                real = getattr(seat, f"real_{sex['plural']}")
-                opposite_idx = 1 - idx
-                opposite = self.sexs[opposite_idx]
-                if real == 1:
-                    seat.candidates.filter(sex=sex["name"]).update(
-                        anomaly_id="winner", probability=99)
-                    setattr(seat, f"probability_{sex['plural']}", 99)
-                    ready[sex["plural"]] = True
-                    if seat.total_offices == 1:
+                for (idx, sex) in enumerate(self.sexs):
+                    if ready.get(sex["plural"]):
+                        continue
+                    real = getattr(seat, f"real_{sex['plural']}")
+                    opposite_idx = 1 - idx
+                    opposite = self.sexs[opposite_idx]
+                    if real == 1:
+                        seat.candidates.filter(sex=sex["name"]).update(
+                            anomaly_id="winner", probability=100)
+                        setattr(seat, f"probability_{sex['plural']}", 100)
+                        ready[sex["plural"]] = True
                         seat.candidates.exclude(sex=sex["name"]).update(
                             anomaly_id="looser", probability=1)
                         setattr(seat, f"probability_{opposite['plural']}", 1)
                         ready[opposite["plural"]] = True
-                    else:
-                        remaining = seat.total_offices - 1
-                        opposite_real = getattr(
-                            seat, f"real_{opposite['plural']}")
-                        probability = 100 - (remaining * 100 / opposite_real)
-                        seat.candidates\
-                            .filter(sex=opposite["name"])\
-                            .update(probability=probability)
-                        setattr(
-                            seat, f"probability_{opposite['plural']}", probability)
-                        ready[opposite["plural"]] = True
-            for (idx, sex) in enumerate(self.sexs):
-                if ready.get(sex["plural"]):
+                if ready.get("hombres") and ready.get("mujeres"):
+                    seat.save()
                     continue
-                real = getattr(seat, f"real_{sex['plural']}")
+            avg_percent_women, avg_percent_men = self.simulator.calculate_seat(seat)
+            seat.probability_hombres = avg_percent_men
+            seat.probability_mujeres = avg_percent_women
+            seat.candidates.filter(sex="Hombre").update(
+                probability=avg_percent_men)
+            seat.candidates.filter(sex="Mujer").update(
+                probability=avg_percent_women)
+            seat.save()
 
+    def calc_selected(self):
+        for seat in Seat.objects.all():
+            seat.selected_hombres = (
+                seat.probability_hombres * seat.real_hombres / 100)
+            seat.selected_mujeres = (
+                seat.probability_mujeres * seat.real_mujeres / 100)
+            seat.save()
+
+    def post_gender_equity(self):
+        import math
+        from django.db.models import Sum, Count
+        target_districts = []
+        Seat.objects.all().update(
+            final_selected_hombres=None, final_selected_mujeres=None)
+        Candidate.objects.filter(final_anomaly__isnull=False)\
+            .update(final_anomaly=None)
+        districts = JudicialElectoralDistrict.objects.all()\
+            .prefetch_related("seats")
+        for jed in districts:
+            for position in self.positions:
+                pos = position["pos"]
+                counts = jed.aggregations(pos)
+                offices_hombres = counts["offices_hombres"]
+                max_men = math.ceil(counts["total_offices"] / 2)
+                max_shared_men = jed.seats\
+                    .filter(
+                        position=pos, shared_offices=1, real_hombres__gte=1,
+                        probability_hombres__gte=0)
+                diff = counts["selected_hombres"] - counts["selected_mujeres"]
+                if diff > 1.2:
+                    target_districts.append((jed, pos))
+                elif diff > 0.2 and counts["total_offices"] % 2 == 1:
+                    target_districts.append((jed, pos))
+
+        for jed, pos in target_districts:
+            counts = jed.aggregations(pos)
+            offices_mujeres = counts["offices_mujeres"]
+            min_women = math.floor(counts["total_offices"] / 2)
+            min_forced = min_women - offices_mujeres
+            shared_seats = jed.seats\
+                .filter(
+                position=pos, shared_offices__gte=1, real_mujeres__gte=1)\
+                .order_by("real_mujeres")
+            ready_seats = 0
+            for seat_1 in shared_seats:
+                same_quantity = shared_seats.filter(
+                    real_mujeres=seat_1.real_mujeres)
+                same_quantity_count = same_quantity.count()
+                for seat in same_quantity:
+
+                    seat.candidates\
+                        .filter(sex="Hombre")\
+                        .update(final_probability=0,
+                                final_anomaly_id="forced_looser")
+                    seat.probability_hombres = 0
+                    prob_mujeres = 100 / seat.real_mujeres
+                    seat.probability_mujeres = prob_mujeres
+                    seat.gender_forced = 1
+                    seat.final_selected_hombres = 0
+                    seat.final_selected_mujeres = 1
+                    seat.save()
+                    seat.candidates\
+                        .filter(sex="Mujer")\
+                        .update(
+                            final_probability=prob_mujeres,
+                            final_anomaly_id=None)
+
+        for seat in Seat.objects.filter(position__by_circuit=True):
+            if seat.final_selected_hombres is None:
+                seat.final_selected_hombres = seat.selected_hombres
+            if seat.final_selected_mujeres is None:
+                seat.final_selected_mujeres = seat.selected_mujeres
+            seat.save()
+
+        pending_candidates = Candidate.objects.filter(
+            anomaly__isnull=False, final_anomaly__isnull=True)
+        for candidate in pending_candidates:
+            candidate.final_anomaly = candidate.anomaly
+            candidate.save()
+
+        pending_candidates2 = Candidate.objects.filter(
+            final_probability__isnull=True)
+        for candidate in pending_candidates2:
+            candidate.final_probability = candidate.probability
+            candidate.save()
+
+        easy_victory = Candidate.objects.filter(
+            final_anomaly__isnull=True,
+            final_probability__gte=90).update(
+            final_anomaly_id="easy_victory")
+        hard_victory = Candidate.objects.filter(
+            final_anomaly__isnull=True,
+            final_probability__lte=2).update(
+            final_anomaly_id="hard_victory")
+
+    def post_gender_equity_old(self):
+        import math
+        from django.db.models import Sum, Count
+        from oej.models import Candidate
+        target_districts = []
+        Seat.objects.all().update(
+            final_selected_hombres=None, final_selected_mujeres=None)
+        Candidate.objects.filter(final_anomaly__isnull=False)\
+            .update(final_anomaly=None)
+        districts = JudicialElectoralDistrict.objects.all()\
+            .prefetch_related("seats")
+        for jed in districts:
+            for position in self.positions:
+                pos = position["pos"]
+                counts = jed.aggregations(pos)
+                diff = counts["selected_hombres"] - counts["selected_mujeres"]
+                if diff > 1.2:
+                    target_districts.append((jed, pos))
+                elif diff > 0.2 and counts["total_offices"] % 2 == 1:
+                    target_districts.append((jed, pos))
+
+        for jed, pos in target_districts:
+            counts = jed.aggregations(pos)
+            offices_mujeres = counts["offices_mujeres"]
+            min_women = math.floor(counts["total_offices"] / 2)
+            min_forced = min_women - offices_mujeres
+            shared_seats = jed.seats\
+                .filter(
+                position=pos, shared_offices__gte=1, real_mujeres__gte=1)\
+                .order_by("real_mujeres")
+            ready_seats = 0
+            for seat_1 in shared_seats:
+                same_quantity = shared_seats.filter(
+                    real_mujeres=seat_1.real_mujeres)
+                same_quantity_count = same_quantity.count()
+                for seat in same_quantity:
+
+                    seat.candidates\
+                        .filter(sex="Hombre")\
+                        .update(final_probability=0,
+                                final_anomaly_id="forced_looser")
+                    seat.probability_hombres = 0
+                    prob_mujeres = 100 / seat.real_mujeres
+                    seat.probability_mujeres = prob_mujeres
+                    seat.gender_forced = 1
+                    seat.final_selected_hombres = 0
+                    seat.final_selected_mujeres = 1
+                    seat.save()
+                    seat.candidates\
+                        .filter(sex="Mujer")\
+                        .update(
+                            final_probability=prob_mujeres,
+                            final_anomaly_id=None)
+
+        for seat in Seat.objects.filter(position__by_circuit=True):
+            if seat.final_selected_hombres is None:
+                seat.final_selected_hombres = seat.selected_hombres
+            if seat.final_selected_mujeres is None:
+                seat.final_selected_mujeres = seat.selected_mujeres
+            seat.save()
+
+        pending_candidates = Candidate.objects.filter(
+            anomaly__isnull=False, final_anomaly__isnull=True)
+        for candidate in pending_candidates:
+            candidate.final_anomaly = candidate.anomaly
+            candidate.save()
+
+        pending_candidates2 = Candidate.objects.filter(
+            final_probability__isnull=True)
+        for candidate in pending_candidates2:
+            candidate.final_probability = candidate.probability
+            candidate.save()
+
+        easy_victory = Candidate.objects.filter(
+            final_anomaly__isnull=True,
+            final_probability__gte=90).update(
+            final_anomaly_id="easy_victory")
+        hard_victory = Candidate.objects.filter(
+            final_anomaly__isnull=True,
+            final_probability__lte=2).update(
+            final_anomaly_id="hard_victory")
 
     def count_by_circ_dist(self):
         distritos = [
@@ -656,3 +850,9 @@ class ResearchCases(LoadCandidates):
         for circ_dist, values in by_circ_dist.items():
             print(f"{circ_dist}: {values}")
 
+
+def clean_name(name):
+    import re
+    name = name.replace("\n", " ")
+    name = re.sub(r'\s+', ' ', name)
+    return name.strip()

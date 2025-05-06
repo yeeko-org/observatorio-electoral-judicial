@@ -138,6 +138,7 @@ class Seat(models.Model):
         related_name='seats')
     topic_index = models.IntegerField(
         blank=True, null=True, verbose_name='Índice de materia')
+
     total_offices = models.IntegerField(
         default=0, verbose_name='Número de cargos disponibles')
     squares_hombres = models.IntegerField(
@@ -152,13 +153,63 @@ class Seat(models.Model):
         default=0, verbose_name='Número de mujeres compitiendo')
     candidates_data = models.JSONField(
         blank=True, null=True, verbose_name='Datos de candidatos')
+
+    offices_hombres = models.IntegerField(
+        default=0, verbose_name='Número de cargos asignados a hombres')
+    offices_mujeres = models.IntegerField(
+        default=0, verbose_name='Número de cargos asignados a mujeres')
+    shared_offices = models.IntegerField(
+        default=0, verbose_name='Número de cargos compartidos')
+
+    gender_forced = models.IntegerField(
+        default=0, verbose_name='Por paridad, debe ser mujer')
+    gender_probability = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Probabilidad de regla de paridad')
+
     probability_hombres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
         verbose_name='Probabilidad de hombres')
     probability_mujeres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
         verbose_name='Probabilidad de mujeres')
+    selected_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Hombres elegidos')
+    selected_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Mujeres elegidas')
+    final_selected_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Hombres elegidos (final)')
+    final_selected_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Mujeres elegidas (final)')
 
+    def save(self, *args, **kwargs):
+        import math
+        if self.offices_hombres or self.offices_mujeres or self.shared_offices:
+            super(Seat, self).save(*args, **kwargs)
+
+        offices_mujeres = 0
+        offices_hombres = 0
+
+        # Inicializar valores
+        shared_offices = 0
+
+        if self.real_hombres == 0:
+            offices_mujeres = self.total_offices
+        elif self.total_offices == 1:
+            shared_offices = 1
+        else:
+            min_women = math.ceil(self.total_offices / 2)
+            offices_mujeres = min(min_women, self.real_mujeres)
+            offices_hombres = self.total_offices - offices_mujeres
+
+        self.shared_offices = shared_offices
+        self.offices_mujeres = offices_mujeres
+        self.offices_hombres = offices_hombres
+        super(Seat, self).save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.position} - {self.state} - {self.circunscription}"
@@ -251,10 +302,15 @@ class Candidate(models.Model):
     anomaly = models.ForeignKey(
         Anomaly, on_delete=models.CASCADE, blank=True, null=True,
         related_name='candidates')
+    final_anomaly = models.ForeignKey(
+        Anomaly, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='final_candidates')
     probability = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=5, decimal_places=2, blank=True, null=True,
         verbose_name='Probabilidad de ser candidato')
-
+    final_probability = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Probabilidad final de ser candidato')
 
     @property
     def position(self):
