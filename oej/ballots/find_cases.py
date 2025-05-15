@@ -1,5 +1,6 @@
 import json
 
+from lxml.html.diff import tag_token
 from matplotlib.style.core import available
 
 from oej.cards.load_candidates import LoadCandidates
@@ -51,7 +52,6 @@ class ResearchCases(LoadCandidates):
         self.saved_candidates = {}
         self.positions_obj = Position.objects.filter(by_circuit=True)
         self.simulator = ElectionSimulator(False)
-
 
     def save_candidates(self):
         import requests
@@ -129,8 +129,6 @@ class ResearchCases(LoadCandidates):
             anomaly_ob.description = anomaly.get("description", "")
             anomaly_ob.save()
 
-
-
     def load_districts(self):
         import json
         with open(self.base_path, "r", encoding="utf-8") as file:
@@ -146,6 +144,30 @@ class ResearchCases(LoadCandidates):
                 print(f"{circ_dist}: {distrito['entidad']}")
                 self.district = distrito
                 self.process_district()
+        self.add_empty_specialities()
+
+    def add_empty_specialities(self):
+        from geo.models import Topic, State
+        specialties = [
+            {"state": "Nuevo León", "speciality": "MIXTO", "dej": 3,
+             "position": "mmtcca"},
+            {"state": "Coahuila", "speciality": "MERCANTIL", "dej": 2,
+             "position": "jjd"},
+        ]
+        for speciality in specialties:
+            position = Position.objects.get(acronym=speciality["position"])
+            topic, _ = Topic.objects.get_or_create(
+                name=speciality["speciality"],
+            )
+            state = State.objects.get(short_name=speciality["state"])
+            jed = JudicialElectoralDistrict.objects.get(
+                number=speciality["dej"], state=state
+            )
+            seat, _ = Seat.objects.get_or_create(
+                position=position,
+                topic=topic,
+                judicial_district=jed,
+            )
 
     def load_candidates(self):
         import os
@@ -286,8 +308,10 @@ class ResearchCases(LoadCandidates):
     def analyze_seats(self):
 
         all_seats = Seat.objects.filter(judicial_district__isnull=False)
-        Candidate.objects.filter(anomaly__isnull=False).update(
-            anomaly=None, probability=0)
+        all_seats.update(has_simulations=False)
+        Candidate.objects.all().update(
+            anomaly=None, probability=None, final_probability=0,
+            simulations=None, final_anomaly=None, circuit_probability=None)
         for seat in all_seats:
             # seat.save()
             total_real = seat.real_hombres + seat.real_mujeres
@@ -326,13 +350,14 @@ class ResearchCases(LoadCandidates):
                         setattr(seat, f"probability_{sex['plural']}", 100)
                         ready[sex["plural"]] = True
                         seat.candidates.exclude(sex=sex["name"]).update(
-                            anomaly_id="looser", probability=1)
-                        setattr(seat, f"probability_{opposite['plural']}", 1)
+                            anomaly_id="looser", probability=0)
+                        setattr(seat, f"probability_{opposite['plural']}", 0)
                         ready[opposite["plural"]] = True
                 if ready.get("hombres") and ready.get("mujeres"):
                     seat.save()
                     continue
-            avg_percent_women, avg_percent_men = self.simulator.calculate_seat(seat)
+            avg_percent_women, avg_percent_men = self.simulator\
+                .simulate_seat(seat)
             seat.probability_hombres = avg_percent_men
             seat.probability_mujeres = avg_percent_women
             seat.candidates.filter(sex="Hombre").update(
@@ -349,64 +374,134 @@ class ResearchCases(LoadCandidates):
                 seat.probability_mujeres * seat.real_mujeres / 100)
             seat.save()
 
-    def post_gender_equity(self):
+    def post_gender_equity(self, jed_id=None):
         import math
-        from django.db.models import Sum, Count
         target_districts = []
-        Seat.objects.all().update(
-            final_selected_hombres=None, final_selected_mujeres=None)
-        Candidate.objects.filter(final_anomaly__isnull=False)\
-            .update(final_anomaly=None)
+        if not jed_id:
+            Seat.objects.all().update(
+                forced_probability_hombres=0, forced_probability_mujeres=0,
+                circuit_forced_probability_hombres=0, circuit_forced_probability_mujeres=0,
+                final_selected_hombres=None, final_selected_mujeres=None,
+                final_probability_hombres=None, final_probability_mujeres=None,
+                circuit_probability_hombres=None, circuit_probability_mujeres=None,
+            )
+            Candidate.objects.filter(final_anomaly__isnull=False)\
+                .update(final_anomaly=None)
+            Candidate.objects.all().update(final_probability=None)
         districts = JudicialElectoralDistrict.objects.all()\
             .prefetch_related("seats")
+        if jed_id:
+            districts = districts.filter(id=jed_id)
         for jed in districts:
             for position in self.positions:
                 pos = position["pos"]
-                counts = jed.aggregations(pos)
-                offices_hombres = counts["offices_hombres"]
-                max_men = math.ceil(counts["total_offices"] / 2)
+                # print(f"\n{position['short_name']} - {jed.id} - "
+                #       f"{jed.state.short_name} [{jed.number}]")
                 max_shared_men = jed.seats\
                     .filter(
                         position=pos, shared_offices=1, real_hombres__gte=1,
-                        probability_hombres__gte=0)
-                diff = counts["selected_hombres"] - counts["selected_mujeres"]
-                if diff > 1.2:
-                    target_districts.append((jed, pos))
-                elif diff > 0.2 and counts["total_offices"] % 2 == 1:
-                    target_districts.append((jed, pos))
+                        probability_hombres__gt=0)
+                if not max_shared_men.exists():
+                    continue
+                counts = jed.aggregations(pos)
+                offices_hombres = counts["offices_hombres"]
+                offices_mujeres = counts["offices_mujeres"]
+                max_offices_men = math.ceil(counts["total_offices"] / 2)
+                min_offices_women = math.floor(counts["total_offices"] / 2)
+                max_simple_men = offices_hombres + max_shared_men.count()
+                if max_simple_men > max_offices_men:
+                    target_districts.append(
+                        (jed, pos, min_offices_women, offices_mujeres))
 
-        for jed, pos in target_districts:
-            counts = jed.aggregations(pos)
-            offices_mujeres = counts["offices_mujeres"]
-            min_women = math.floor(counts["total_offices"] / 2)
-            min_forced = min_women - offices_mujeres
-            shared_seats = jed.seats\
-                .filter(
-                position=pos, shared_offices__gte=1, real_mujeres__gte=1)\
-                .order_by("real_mujeres")
-            ready_seats = 0
-            for seat_1 in shared_seats:
-                same_quantity = shared_seats.filter(
-                    real_mujeres=seat_1.real_mujeres)
-                same_quantity_count = same_quantity.count()
-                for seat in same_quantity:
+        print(f"Target districts: {len(target_districts)}")
 
-                    seat.candidates\
-                        .filter(sex="Hombre")\
-                        .update(final_probability=0,
-                                final_anomaly_id="forced_looser")
-                    seat.probability_hombres = 0
-                    prob_mujeres = 100 / seat.real_mujeres
-                    seat.probability_mujeres = prob_mujeres
-                    seat.gender_forced = 1
-                    seat.final_selected_hombres = 0
-                    seat.final_selected_mujeres = 1
-                    seat.save()
-                    seat.candidates\
-                        .filter(sex="Mujer")\
-                        .update(
-                            final_probability=prob_mujeres,
-                            final_anomaly_id=None)
+        for jed, pos, min_offices_women, offices_mujeres in target_districts:
+            self.simulator.calculate_pos_district(
+                pos, min_offices_women, jed, offices_mujeres
+            )
+
+        if not jed_id:
+            self.save_final_data()
+
+    def post_gender_by_circuit(self, ciruit_id=None):
+        import math
+        from django.db.models import Sum, Count
+        from geo.models import State, Topic
+        target_states = []
+
+        states = State.objects.all()
+        for state in states:
+            circuit = state.circuit
+            judicial_districts = state.judicial_electoral_districts.all()
+            if judicial_districts.count() < 2:
+                continue
+            for position in self.positions:
+                pos = position["pos"]
+                seats = Seat.objects.filter(
+                    position=pos, judicial_district__circuit=circuit)
+                all_topics = Seat.objects.filter(
+                    position=pos, judicial_district__circuit=circuit)\
+                    .values_list("topic_id", flat=True).distinct()
+                unique_topics = set(all_topics)
+                for topic in unique_topics:
+                    topic_obj = Topic.objects.get(id=topic)
+                    topic_seats = seats.filter(topic=topic_obj)
+                    max_shared_men = topic_seats\
+                        .filter(
+                            shared_offices=1, real_hombres__gte=1,
+                            final_probability_hombres__gt=0.1)
+                    # if not max_shared_men.exists():
+                    #     # print("Not hay shared offices")
+                    #     continue
+                    fields = ['total_offices', 'real_hombres', 'real_mujeres',
+                              'offices_hombres', 'offices_mujeres']
+                    # print(f"\n{position['short_name']} - {state.short_name} - "
+                    #       f"{topic_obj.name}")
+                    # print("Topic seats: ", topic_seats.count())
+
+                    query = { aggr: Sum(aggr) for aggr in fields }
+                    counts = topic_seats.aggregate(**query)
+                    offices_hombres = counts["offices_hombres"]
+                    max_offices_men = math.ceil(counts["total_offices"] / 2)
+                    min_offices_women = math.floor(counts["total_offices"] / 2)
+                    max_simple_men = offices_hombres + max_shared_men.count()
+                    if max_simple_men > max_offices_men:
+                        target_states.append((state, pos, topic_obj, min_offices_women))
+
+        print(f"Target districts: {len(target_states)}")
+
+        for (state, pos, topic_obj, min_offices_women) in target_states:
+            print(f"\n{pos.short_name} - {state.short_name} - "
+                  f"{topic_obj.name}")
+            seats = Seat.objects.filter(
+                position=pos, judicial_district__circuit=state.circuit,
+                topic=topic_obj)
+            self.simulator.calculate_topic_circuit(
+                pos, min_offices_women, state, topic_obj)
+
+        self.save_circuit_data()
+            # print("Topic seats: ", topic_seats.count())
+
+        # for jed, pos, min_offices_women in target_districts:
+        #     self.simulator.calculate_pos_district(
+        #         pos, jed, min_offices_women
+        #     )
+        #
+        # if not jed_id:
+        #     self.save_final_data()
+
+    def save_final_data(self):
+
+        for seat in Seat.objects.filter(position__by_circuit=True):
+            if seat.final_probability_hombres is None:
+                seat.final_probability_hombres = seat.probability_hombres
+            if seat.final_probability_mujeres is None:
+                seat.final_probability_mujeres = seat.probability_mujeres
+            seat.final_selected_hombres = (
+                seat.final_probability_hombres * seat.real_hombres / 100)
+            seat.final_selected_mujeres = (
+                seat.final_probability_mujeres * seat.real_mujeres / 100)
+            seat.save()
 
         for seat in Seat.objects.filter(position__by_circuit=True):
             if seat.final_selected_hombres is None:
@@ -416,25 +511,61 @@ class ResearchCases(LoadCandidates):
             seat.save()
 
         pending_candidates = Candidate.objects.filter(
-            anomaly__isnull=False, final_anomaly__isnull=True)
-        for candidate in pending_candidates:
-            candidate.final_anomaly = candidate.anomaly
-            candidate.save()
+            seat__position__by_circuit=True)
+        for sex in ["Hombre", "Mujer"]:
+            sex_candidates = pending_candidates.filter(sex=sex)
+            for candidate in sex_candidates:
+                if sex == "Hombre":
+                    candidate.final_probability = candidate.seat.final_probability_hombres
+                else:
+                    candidate.final_probability = candidate.seat.final_probability_mujeres
+                candidate.save()
+        # pending_candidates = Candidate.objects.filter(
+        #     anomaly__isnull=False, final_anomaly__isnull=True)
+        # for candidate in pending_candidates:
+        #     candidate.final_anomaly = candidate.anomaly
+        #     candidate.save()
+        #
+        # easy_victory = Candidate.objects.filter(
+        #     final_anomaly__isnull=True,
+        #     final_probability__gte=90).update(
+        #     final_anomaly_id="easy_victory")
+        # hard_victory = Candidate.objects.filter(
+        #     final_anomaly__isnull=True,
+        #     final_probability__lte=2).update(
+        #     final_anomaly_id="hard_victory")
 
-        pending_candidates2 = Candidate.objects.filter(
-            final_probability__isnull=True)
-        for candidate in pending_candidates2:
-            candidate.final_probability = candidate.probability
-            candidate.save()
+    def save_circuit_data(self):
 
-        easy_victory = Candidate.objects.filter(
-            final_anomaly__isnull=True,
-            final_probability__gte=90).update(
-            final_anomaly_id="easy_victory")
-        hard_victory = Candidate.objects.filter(
-            final_anomaly__isnull=True,
-            final_probability__lte=2).update(
-            final_anomaly_id="hard_victory")
+        for seat in Seat.objects.filter(position__by_circuit=True):
+            if seat.circuit_probability_hombres is None:
+                seat.circuit_probability_hombres = seat.final_probability_hombres
+            if seat.circuit_probability_mujeres is None:
+                seat.circuit_probability_mujeres = seat.final_probability_mujeres
+            seat.circuit_selected_hombres = (
+                seat.circuit_probability_hombres * seat.real_hombres / 100)
+            seat.circuit_selected_mujeres = (
+                seat.circuit_probability_mujeres * seat.real_mujeres / 100)
+            seat.save()
+
+        for seat in Seat.objects.filter(position__by_circuit=True):
+            if seat.circuit_selected_hombres is None:
+                seat.circuit_selected_hombres = seat.final_selected_hombres
+            if seat.circuit_selected_mujeres is None:
+                seat.circuit_selected_mujeres = seat.final_selected_mujeres
+            seat.save()
+
+        pending_candidates = Candidate.objects.filter(
+            seat__position__by_circuit=True)
+        for sex in ["Hombre", "Mujer"]:
+            sex_candidates = pending_candidates.filter(sex=sex)
+            for candidate in sex_candidates:
+                if sex == "Hombre":
+                    candidate.circuit_probability = candidate.seat.circuit_probability_hombres
+                else:
+                    candidate.circuit_probability = candidate.seat.circuit_probability_mujeres
+                candidate.save()
+
 
     def post_gender_equity_old(self):
         import math
@@ -457,398 +588,338 @@ class ResearchCases(LoadCandidates):
                 elif diff > 0.2 and counts["total_offices"] % 2 == 1:
                     target_districts.append((jed, pos))
 
-        for jed, pos in target_districts:
-            counts = jed.aggregations(pos)
-            offices_mujeres = counts["offices_mujeres"]
-            min_women = math.floor(counts["total_offices"] / 2)
-            min_forced = min_women - offices_mujeres
-            shared_seats = jed.seats\
-                .filter(
-                position=pos, shared_offices__gte=1, real_mujeres__gte=1)\
-                .order_by("real_mujeres")
-            ready_seats = 0
-            for seat_1 in shared_seats:
-                same_quantity = shared_seats.filter(
-                    real_mujeres=seat_1.real_mujeres)
-                same_quantity_count = same_quantity.count()
-                for seat in same_quantity:
 
-                    seat.candidates\
-                        .filter(sex="Hombre")\
-                        .update(final_probability=0,
-                                final_anomaly_id="forced_looser")
-                    seat.probability_hombres = 0
-                    prob_mujeres = 100 / seat.real_mujeres
-                    seat.probability_mujeres = prob_mujeres
-                    seat.gender_forced = 1
-                    seat.final_selected_hombres = 0
-                    seat.final_selected_mujeres = 1
-                    seat.save()
-                    seat.candidates\
-                        .filter(sex="Mujer")\
-                        .update(
-                            final_probability=prob_mujeres,
-                            final_anomaly_id=None)
+def count_by_circ_dist():
+    distritos = [
+        {
+            "circuito": 30,
+            "distrito": 1,
+            "entidad": 1,
+        },
+        {
+            "circuito": 15,
+            "distrito": 1,
+            "entidad": 2,
+        },
+        {
+            "circuito": 15,
+            "distrito": 2,
+            "entidad": 2,
+        },
+        {
+            "circuito": 26,
+            "distrito": 1,
+            "entidad": 3,
+        },
+        {
+            "circuito": 31,
+            "distrito": 1,
+            "entidad": 4,
+        },
+        {
+            "circuito": 8,
+            "distrito": 1,
+            "entidad": 5,
+        },
+        {
+            "circuito": 8,
+            "distrito": 2,
+            "entidad": 5,
+        },
+        {
+            "circuito": 32,
+            "distrito": 1,
+            "entidad": 6,
+        },
+        {
+            "circuito": 20,
+            "distrito": 1,
+            "entidad": 7,
+        },
+        {
+            "circuito": 17,
+            "distrito": 1,
+            "entidad": 8,
+        },
+        {
+            "circuito": 17,
+            "distrito": 2,
+            "entidad": 8,
+        },
+        {
+            "circuito": 1,
+            "distrito": 6,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 9,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 5,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 7,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 11,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 10,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 1,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 2,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 8,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 3,
+            "entidad": 9,
+        },
+        {
+            "circuito": 1,
+            "distrito": 4,
+            "entidad": 9,
+        },
+        {
+            "circuito": 25,
+            "distrito": 1,
+            "entidad": 10,
+        },
+        {
+            "circuito": 8,
+            "distrito": 2,
+            "entidad": 10,
+        },
+        {
+            "circuito": 8,
+            "distrito": 1,
+            "entidad": 10,
+        },
+        {
+            "circuito": 16,
+            "distrito": 2,
+            "entidad": 11,
+        },
+        {
+            "circuito": 16,
+            "distrito": 1,
+            "entidad": 11,
+        },
+        {
+            "circuito": 21,
+            "distrito": 1,
+            "entidad": 12,
+        },
+        {
+            "circuito": 29,
+            "distrito": 1,
+            "entidad": 13,
+        },
+        {
+            "circuito": 3,
+            "distrito": 2,
+            "entidad": 14,
+        },
+        {
+            "circuito": 3,
+            "distrito": 1,
+            "entidad": 14,
+        },
+        {
+            "circuito": 3,
+            "distrito": 4,
+            "entidad": 14,
+        },
+        {
+            "circuito": 3,
+            "distrito": 3,
+            "entidad": 14,
+        },
+        {
+            "circuito": 2,
+            "distrito": 3,
+            "entidad": 15,
+        },
+        {
+            "circuito": 2,
+            "distrito": 1,
+            "entidad": 15,
+        },
+        {
+            "circuito": 2,
+            "distrito": 2,
+            "entidad": 15,
+        },
+        {
+            "circuito": 11,
+            "distrito": 1,
+            "entidad": 16,
+        },
+        {
+            "circuito": 18,
+            "distrito": 2,
+            "entidad": 17,
+        },
+        {
+            "circuito": 18,
+            "distrito": 1,
+            "entidad": 17,
+        },
+        {
+            "circuito": 24,
+            "distrito": 1,
+            "entidad": 18,
+        },
+        {
+            "circuito": 4,
+            "distrito": 3,
+            "entidad": 19,
+        },
+        {
+            "circuito": 4,
+            "distrito": 2,
+            "entidad": 19,
+        },
+        {
+            "circuito": 4,
+            "distrito": 1,
+            "entidad": 19,
+        },
+        {
+            "circuito": 13,
+            "distrito": 1,
+            "entidad": 20,
+        },
+        {
+            "circuito": 6,
+            "distrito": 1,
+            "entidad": 21,
+        },
+        {
+            "circuito": 6,
+            "distrito": 2,
+            "entidad": 21,
+        },
+        {
+            "circuito": 22,
+            "distrito": 1,
+            "entidad": 22,
+        },
+        {
+            "circuito": 27,
+            "distrito": 1,
+            "entidad": 23,
+        },
+        {
+            "circuito": 9,
+            "distrito": 1,
+            "entidad": 24,
+        },
+        {
+            "circuito": 12,
+            "distrito": 1,
+            "entidad": 25,
+        },
+        {
+            "circuito": 12,
+            "distrito": 2,
+            "entidad": 25,
+        },
+        {
+            "circuito": 5,
+            "distrito": 2,
+            "entidad": 26,
+        },
+        {
+            "circuito": 5,
+            "distrito": 1,
+            "entidad": 26,
+        },
+        {
+            "circuito": 15,
+            "distrito": 1,
+            "entidad": 26,
+        },
+        {
+            "circuito": 10,
+            "distrito": 2,
+            "entidad": 27,
+        },
+        {
+            "circuito": 10,
+            "distrito": 1,
+            "entidad": 27,
+        },
+        {
+            "circuito": 19,
+            "distrito": 1,
+            "entidad": 28,
+        },
+        {
+            "circuito": 19,
+            "distrito": 2,
+            "entidad": 28,
+        },
+        {
+            "circuito": 28,
+            "distrito": 1,
+            "entidad": 29,
+        },
+        {
+            "circuito": 7,
+            "distrito": 1,
+            "entidad": 30,
+        },
+        {
+            "circuito": 10,
+            "distrito": 1,
+            "entidad": 30,
+        },
+        {
+            "circuito": 7,
+            "distrito": 2,
+            "entidad": 30,
+        },
+        {
+            "circuito": 14,
+            "distrito": 1,
+            "entidad": 31,
+        },
+        {
+            "circuito": 23,
+            "distrito": 1,
+            "entidad": 32,
+        },
+    ]
+    by_circ_dist = { }
+    for distrito in distritos:
+        circ_dist = f"{distrito['circuito']}-{distrito['distrito']}"
+        by_circ_dist.setdefault(circ_dist, [])
+        by_circ_dist[circ_dist].append(distrito)
 
-        for seat in Seat.objects.filter(position__by_circuit=True):
-            if seat.final_selected_hombres is None:
-                seat.final_selected_hombres = seat.selected_hombres
-            if seat.final_selected_mujeres is None:
-                seat.final_selected_mujeres = seat.selected_mujeres
-            seat.save()
-
-        pending_candidates = Candidate.objects.filter(
-            anomaly__isnull=False, final_anomaly__isnull=True)
-        for candidate in pending_candidates:
-            candidate.final_anomaly = candidate.anomaly
-            candidate.save()
-
-        pending_candidates2 = Candidate.objects.filter(
-            final_probability__isnull=True)
-        for candidate in pending_candidates2:
-            candidate.final_probability = candidate.probability
-            candidate.save()
-
-        easy_victory = Candidate.objects.filter(
-            final_anomaly__isnull=True,
-            final_probability__gte=90).update(
-            final_anomaly_id="easy_victory")
-        hard_victory = Candidate.objects.filter(
-            final_anomaly__isnull=True,
-            final_probability__lte=2).update(
-            final_anomaly_id="hard_victory")
-
-    def count_by_circ_dist(self):
-        distritos = [
-            {
-                "circuito": 30,
-                "distrito": 1,
-                "entidad": 1,
-            },
-            {
-                "circuito": 15,
-                "distrito": 1,
-                "entidad": 2,
-            },
-            {
-                "circuito": 15,
-                "distrito": 2,
-                "entidad": 2,
-            },
-            {
-                "circuito": 26,
-                "distrito": 1,
-                "entidad": 3,
-            },
-            {
-                "circuito": 31,
-                "distrito": 1,
-                "entidad": 4,
-            },
-            {
-                "circuito": 8,
-                "distrito": 1,
-                "entidad": 5,
-            },
-            {
-                "circuito": 8,
-                "distrito": 2,
-                "entidad": 5,
-            },
-            {
-                "circuito": 32,
-                "distrito": 1,
-                "entidad": 6,
-            },
-            {
-                "circuito": 20,
-                "distrito": 1,
-                "entidad": 7,
-            },
-            {
-                "circuito": 17,
-                "distrito": 1,
-                "entidad": 8,
-            },
-            {
-                "circuito": 17,
-                "distrito": 2,
-                "entidad": 8,
-            },
-            {
-                "circuito": 1,
-                "distrito": 6,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 9,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 5,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 7,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 11,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 10,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 1,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 2,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 8,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 3,
-                "entidad": 9,
-            },
-            {
-                "circuito": 1,
-                "distrito": 4,
-                "entidad": 9,
-            },
-            {
-                "circuito": 25,
-                "distrito": 1,
-                "entidad": 10,
-            },
-            {
-                "circuito": 8,
-                "distrito": 2,
-                "entidad": 10,
-            },
-            {
-                "circuito": 8,
-                "distrito": 1,
-                "entidad": 10,
-            },
-            {
-                "circuito": 16,
-                "distrito": 2,
-                "entidad": 11,
-            },
-            {
-                "circuito": 16,
-                "distrito": 1,
-                "entidad": 11,
-            },
-            {
-                "circuito": 21,
-                "distrito": 1,
-                "entidad": 12,
-            },
-            {
-                "circuito": 29,
-                "distrito": 1,
-                "entidad": 13,
-            },
-            {
-                "circuito": 3,
-                "distrito": 2,
-                "entidad": 14,
-            },
-            {
-                "circuito": 3,
-                "distrito": 1,
-                "entidad": 14,
-            },
-            {
-                "circuito": 3,
-                "distrito": 4,
-                "entidad": 14,
-            },
-            {
-                "circuito": 3,
-                "distrito": 3,
-                "entidad": 14,
-            },
-            {
-                "circuito": 2,
-                "distrito": 3,
-                "entidad": 15,
-            },
-            {
-                "circuito": 2,
-                "distrito": 1,
-                "entidad": 15,
-            },
-            {
-                "circuito": 2,
-                "distrito": 2,
-                "entidad": 15,
-            },
-            {
-                "circuito": 11,
-                "distrito": 1,
-                "entidad": 16,
-            },
-            {
-                "circuito": 18,
-                "distrito": 2,
-                "entidad": 17,
-            },
-            {
-                "circuito": 18,
-                "distrito": 1,
-                "entidad": 17,
-            },
-            {
-                "circuito": 24,
-                "distrito": 1,
-                "entidad": 18,
-            },
-            {
-                "circuito": 4,
-                "distrito": 3,
-                "entidad": 19,
-            },
-            {
-                "circuito": 4,
-                "distrito": 2,
-                "entidad": 19,
-            },
-            {
-                "circuito": 4,
-                "distrito": 1,
-                "entidad": 19,
-            },
-            {
-                "circuito": 13,
-                "distrito": 1,
-                "entidad": 20,
-            },
-            {
-                "circuito": 6,
-                "distrito": 1,
-                "entidad": 21,
-            },
-            {
-                "circuito": 6,
-                "distrito": 2,
-                "entidad": 21,
-            },
-            {
-                "circuito": 22,
-                "distrito": 1,
-                "entidad": 22,
-            },
-            {
-                "circuito": 27,
-                "distrito": 1,
-                "entidad": 23,
-            },
-            {
-                "circuito": 9,
-                "distrito": 1,
-                "entidad": 24,
-            },
-            {
-                "circuito": 12,
-                "distrito": 1,
-                "entidad": 25,
-            },
-            {
-                "circuito": 12,
-                "distrito": 2,
-                "entidad": 25,
-            },
-            {
-                "circuito": 5,
-                "distrito": 2,
-                "entidad": 26,
-            },
-            {
-                "circuito": 5,
-                "distrito": 1,
-                "entidad": 26,
-            },
-            {
-                "circuito": 15,
-                "distrito": 1,
-                "entidad": 26,
-            },
-            {
-                "circuito": 10,
-                "distrito": 2,
-                "entidad": 27,
-            },
-            {
-                "circuito": 10,
-                "distrito": 1,
-                "entidad": 27,
-            },
-            {
-                "circuito": 19,
-                "distrito": 1,
-                "entidad": 28,
-            },
-            {
-                "circuito": 19,
-                "distrito": 2,
-                "entidad": 28,
-            },
-            {
-                "circuito": 28,
-                "distrito": 1,
-                "entidad": 29,
-            },
-            {
-                "circuito": 7,
-                "distrito": 1,
-                "entidad": 30,
-            },
-            {
-                "circuito": 10,
-                "distrito": 1,
-                "entidad": 30,
-            },
-            {
-                "circuito": 7,
-                "distrito": 2,
-                "entidad": 30,
-            },
-            {
-                "circuito": 14,
-                "distrito": 1,
-                "entidad": 31,
-            },
-            {
-                "circuito": 23,
-                "distrito": 1,
-                "entidad": 32,
-            },
-        ]
-        by_circ_dist = { }
-        for distrito in distritos:
-            circ_dist = f"{distrito['circuito']}-{distrito['distrito']}"
-            by_circ_dist.setdefault(circ_dist, [])
-            by_circ_dist[circ_dist].append(distrito)
-
-        for circ_dist, values in by_circ_dist.items():
-            print(f"{circ_dist}: {values}")
+    for circ_dist, values in by_circ_dist.items():
+        print(f"{circ_dist}: {values}")
 
 
 def clean_name(name):

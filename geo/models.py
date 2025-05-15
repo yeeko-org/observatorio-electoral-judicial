@@ -126,7 +126,7 @@ class JudicialElectoralDistrict(models.Model):
         blank=True, null=True,
         related_name='judicial_electoral_districts_2')
 
-    def aggregations(self, position=None):
+    def aggregations(self, position=None) -> dict:
         fields = ['total_offices', 'real_hombres', 'real_mujeres',
                   'selected_hombres', 'selected_mujeres',
                   'offices_hombres', 'offices_mujeres']

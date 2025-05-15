@@ -28,13 +28,10 @@ class LoadSections:
         # self.load_district_id()
         # self.bulk_create()
 
-    # def load_csv(self, file_path):
     def load_json(self, file_path):
         print("Loading geo data")
-        # with open(file_path, newline='', encoding='latin1') as csvfile:
         with open(file_path, encoding='utf-8') as jsonfile:
             self.section_data = json.load(jsonfile)
-            # sections = all_data.get("secciones", [])
 
     def prepare_sections(self):
         print("Preparing sections")

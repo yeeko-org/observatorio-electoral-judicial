@@ -175,9 +175,15 @@ def build_candidate_json_report():
         json.dump(final_data, json_file, ensure_ascii=False, indent=4)
 
 
+def base_offices():
+    from oej.models import Seat
+    for seat in Seat.objects.all():
+        seat.save_shared()
+
+
 def exports():
     from oej.ballots.counters import count_by_district, count_by_seat
-    count_by_district()
+    # count_by_district()
     count_by_seat()
 
 
@@ -189,14 +195,25 @@ def main():
     research.analyze_seats()
     research.calc_selected()
     research.post_gender_equity()
+    research.post_gender_by_circuit()
+
+
+def main_by_circuit():
+    from oej.ballots.find_cases import ResearchCases
+    research = ResearchCases()
+    research.pre_load()
+    research.load_districts()
+    research.post_gender_by_circuit()
 
 
 def exec_chaotic():
-    from oej.ballots.counters import chaotic_explore
-    chaotic_explore()
+    from oej.ballots.counters import chaotic_explore, total_candidates, candidates_by_sex
+    # chaotic_explore()
+    # total_candidates()
+    candidates_by_sex()
 
 
-def prev_main():
+def load_all_candidates():
     from oej.ballots.find_cases import ResearchCases
     research = ResearchCases()
     research.pre_load()
@@ -209,27 +226,28 @@ def start_simulator():
     from oej.ballots.simulator import ElectionSimulator
     simulator = ElectionSimulator()
 
+    # cases = [
+    #     { "total_offices": 1, "real_hombres": 1, "real_mujeres": 1 },
     cases = [
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 1, "real_mujeres": 1 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 1, "real_mujeres": 2 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 1, "real_mujeres": 3 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 2, "real_mujeres": 2 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 2, "real_mujeres": 3 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 2, "real_mujeres": 4 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 2, "real_mujeres": 5 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 3, "real_mujeres": 3 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 3, "real_mujeres": 4 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 3, "real_mujeres": 5 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 3, "real_mujeres": 6 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 4, "real_mujeres": 4 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 4, "real_mujeres": 5 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 4, "real_mujeres": 6 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 4, "real_mujeres": 7 },
-        { "total_offices": 1, "squares_hombres": 1, "squares_mujeres": 1, "real_hombres": 4, "real_mujeres": 8 },
+        # { "real_hombres": 2, "real_mujeres": 2 },
+        { "real_hombres": 2, "real_mujeres": 3 },
+        { "real_hombres": 2, "real_mujeres": 4 },
+        { "real_hombres": 2, "real_mujeres": 5 },
+        # { "real_hombres": 3, "real_mujeres": 4 },
+        # { "real_hombres": 3, "real_mujeres": 5 },
+        # { "real_hombres": 4, "real_mujeres": 5 },
+        # { "real_hombres": 4, "real_mujeres": 6 },
     ]
+    for case in cases:
+        case["squares_hombres"] = 1
+        case["squares_mujeres"] = 1
+        case["total_offices"] = 1
+        case["shared_offices"] = 1
+        case["offices_mujeres"] = 0
+        case["offices_hombres"] = 0
 
     # Ejecutar con distribución aleatoria (original)
-    simulator.simulate_elections(cases, simulation_type="random")
+    # simulator.simulate_elections(simulation_type="random", cases)
 
     # Ejecutar con voto estratégico
     # simulator.simulate_elections(simulation_type="strategic")
@@ -237,52 +255,16 @@ def start_simulator():
     # Ejecutar con distribución Zipf/Pareto
     # simulator.simulate_elections(
     #     simulation_type="zipf_pareto", zipf_param=1.3)
-    simulator.simulate_elections(
-        cases, simulation_type="zipf_pareto", zipf_param=1.5)
+    simulator.base_factor = 20
+    simulator.simulate_fake_elections(
+        'dirichlet', cases, zipf_param=1.1, concentration_factor=20)
+    # simulator.simulate_fake_elections(
+    #     'zipf_pareto', cases, zipf_param=1.31, concentration_factor=60)
     # simulator.simulate_elections(
     #     simulation_type="zipf_pareto", zipf_param=1.6)
 
 
-def read_from_txt():
-    import os
-
-    common_path = "fixture\social_listening"
-
-    file_path = os.path.join(common_path, "all_keywords.txt")
-    with open(file_path, 'r', encoding='utf-8') as file:
-        lines = file.readlines()
-    keywords_count = {}
-
-    for line in lines:
-        keywords = line.split(";")
-        for keyword in keywords:
-            if keyword.startswith("@"):
-                continue
-            keyword = keyword.strip()
-            keyword = keyword.lower()
-            keywords_count.setdefault(keyword, 0)
-            keywords_count[keyword] += 1
-
-    sorted_keywords = sorted(
-        keywords_count.items(), key=lambda x: x[1], reverse=True)
-
-    for keyword, count in sorted_keywords[:30]:
-        print(f"{keyword}: {count}")
-
-
-def load_site_url():
-    import requests
-    page_url = ("https://developers.facebook.com/micro_site/url/?click_from_context_menu=true&country=MX&destination"
-              "=https%3A%22Fwww.facebook.com%2Fads%2Farchive%2Frender_ad%2F%3Fid%3D1782512702619403%26access_token%3DEAALD2TdxHesBOZClNUmyV4e4qUp1Eb5ZBPZAM3dKeecpTdLFjfbxCniZAWzDpmR9IKZCvnkDmKmSHUYLbjJZAgEHOfmvksFBH0jDo3wrLwY11LxQbvrCuzK67rM1mQLQ0Ev5zr1RkjZBV9gFmNVFUGKoIVkUDbxK8HWZA3aKrZCLStefzM6BcgwTyhnkQSyYfi3cC16ExNHYlAppCRtK1gfFT6I3IA1vuJmkZD&event_type=click&last_nav_impression_id=0oDxvWdCVeHS9l0hJ&max_percent_page_viewed=68&max_viewport_height_px=1132&max_viewport_width_px=1316&orig_http_referrer=https%3A%2F%2Fdevelopers.facebook.com%2Ftools%2Fexplorer%2F778287658900971%2F%3Fmethod%3DGET%26path%3Dads_archive%253Fad_reached_countries%253DMX%2526ad_type%253DPOLITICAL_AND_ISSUE_ADS%2526pretty%253D0%2526search_terms%253Djudicial%2526limit%253D5000%2526ad_delivery_date_min%253D2025-03-01%26version%3Dv21.0&orig_request_uri=https%3A%2F%2Fdevelopers.facebook.com%2Ftools%2Fexplorer%2Fv2%2Fpreferences%2F%3Fads_manager_write_regions%3Dtrue&region=latam&scrolled=false&session_id=1OtL22wGMsy5KOmAW&site=developers")
-
-    response = requests.get(page_url)
-
-    page_url2 = "https://www.facebook.com/ads/archive/render_ad/?id=1042382157852000&access_token=EAALD2TdxHesBOZClNUmyV4e4qUp1Eb5ZBPZAM3dKeecpTdLFjfbxCniZAWzDpmR9IKZCvnkDmKmSHUYLbjJZAgEHOfmvksFBH0jDo3wrLwY11LxQbvrCuzK67rM1mQLQ0Ev5zr1RkjZBV9gFmNVFUGKoIVkUDbxK8HWZA3aKrZCLStefzM6BcgwTyhnkQSyYfi3cC16ExNHYlAppCRtK1gfFT6I3IA1vuJmkZD"
-    response2 = requests.get(page_url2)
-
-    # props
-    # placeholderElement
-
-
-
+def new_probabilities():
+    from oej.ballots.counters import send_all_candidates
+    send_all_candidates()
 

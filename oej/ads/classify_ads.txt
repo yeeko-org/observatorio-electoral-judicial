@@ -1,0 +1,112 @@
+%system%
+Tengo una lista de anuncios de Facebook con un id y con el contenido que de alguna manera están relacionados con la elección judicial en México.
+Necesito ayuda para clasificarlos entre las siguientes categorías:
+
+news: noticias sobre la elección judicial en general sin mencionar a un candidato específico.
+positive_campaign: Cuando se habla de algún candidato específico (o un grupo de ellos) para describirlos o para promocionarlos, o para dara a conocer sus actividades, ideas, propuestas, trayectoria, etc.
+negative_campaign: cuando hablan de uno o varios candidatos específico de forma negativa.
+info: información sobre la elección judicial, o de cómo votar o promoción del voto en general (sin promover a una persona o un grupo).
+multitopic: Habla de varios temas diversos y solo menciona de forma tangencial a la elección judicial o los candidatos.
+other_topic: cualquier otro tipo de anuncio que no hable de la elección judicial ni sea clasificable en las otras categorías.
+unknown: La información proporcionada no es suficiente para clasificar el anuncio.
+
+También determina si se está haciendo alguna especie de promoción del voto por algún candidato o grupo de candidato con el atributo "vote_promotion".
+
+En caso de que exista mención de uno o varios candidatos, incluye el atributo "candidates" con una lista de los nombres de los candidatos mencionados (separados por first_name (nombre o nombres), last_name1 (apellido paterno) y last_name2 (apellido materno).
+También incluye si se mencionan:
+position: el cargo por el que compite
+location: si se menciona algún estado o ubicación
+
+Regrésame un diccionario en JSON con el id como "key" y toda la data y atributos que correspondan
+
+
+====
+%user%
+
+ID: 1790406545235581
+
+(Construyendo Justicia)
+¿Listo para hacer historia este 1º de junio? Prepárate con anticipación, ubica tu casilla, conoce a tus candidatos y elige con conciencia. Es momento de hacer valer tu voz.
+
+#ConstruyendoJusticia
+
+ID: 668547565935477
+
+🚨🚨ATENCION CUERNAVACA, JIUTEPEC, TEMIXCO Y EMILIANO ZAPATA.🚨🚨Ella es Bety Maldonado, con 28 años de Carrera Judicial, intachable, búsquenla en la boleta, aportaremos los mejores perfiles en este medio.
+
+ID: 1032231375249549
+
+🗞️ Desde la cima de Cuajimalpa, Daniel Martín Anaya Padua impulsa una justicia cercana
+
+En el marco de la Elección Judicial 2025, Daniel Martín Anaya Padua, candidato a Magistrado de Circuito en Materia Administrativa, visitó diversos puntos de Cuajimalpa, donde conversó con comerciantes y vecinos sobre la importancia de construir una justicia imparcial y más conectada con la ciudadanía.
+
+Durante su recorrido, el aspirante por el Distrito Judicial 07 destacó que Cuajimalpa representa la fuerza de la comunidad, el trabajo honesto y la voluntad de cambio. “Desde la cima, con esta vista clara y llena de vida, reafirmamos nuestro compromiso con una justicia que escuche, que entienda y que actúe con dignidad y responsabilidad”, expresó.
+
+Daniel Martín continúa recorriendo las tres alcaldías que conforman su distrito —Cuajimalpa, Álvaro Obregón y Magdalena Contreras— promoviendo una campaña de contacto directo y de información clara sobre esta elección inédita.
+
+Los ciudadanos podrán encontrarlo en la boleta rosa, columna hombre, con el número 16, este 1 de junio.
+
+ID: 1427504778619095
+
+¡Vamos por ese relevo mexicano! 🤜🤛 Hoy tuvimos el primer día de la 2da edición del Foro “Jóvenes Dialogando por el Segundo Piso de la Transformación”, y las y los diputados de Morena comenzaron a explicar la importancia de continuar la transformación en el país. 🇲🇽
+
+ID: 1396073068479479
+
+🌧️ Graniza en NL, aparece un osote y La Huasteca cierra
+🚫 Samuel vuelve, no contesta y mejor vayan con Comunicación Social
+🚧 Bloqueos por el tarifazo, Luis N sigue detenido
+🕳️ Encuesta del INEGI: baches, transporte y caos vial… otra vez
+🧪 Ternium derrama químicos, otra empresa contamina y gana amparo
+👶 Usan botella para atender a un bebé por falta de insumos
+🎤 Mariana tenía canciones… ¡con Los Claxons!
+🎮 Nintendo Switch 2 llega en julio desde $13,599
+⚽ ¡Se viene el Clásico Regio Femenil!
+
+💬 ¿Samuel ya mejor que se quede en Disney? ¿Te atreves a escuchar las rolas de Mariana?
+👇 Comenta y comparte con tu compa el que sí cree en el lirio acuático salvador.
+
+#VociferaDiario #NoticiasRegias #SamuelGarcía #LuisN #MarianaRodríguez #NintendoSwitch2 #ClásicoRegio #HumorRegio #ContaminaciónNL
+
+====
+%assistant%
+
+{
+   "1790406545235581":{
+      "category": "info",
+      "vote_promotion": false
+   },
+   "668547565935477":{
+      "category":"positive_campaign",
+      "vote_promotion": true,
+      "candidates":[
+         {
+            "first_name": "Bety",
+            "last_name1": "Maldonado",
+            "last_name2": ""
+         }
+      ],
+      "position": "",
+      "location": "Cuernavaca, Jiutepec, Temixco y Emiliano Zapata"
+   },
+   "1032231375249549":{
+      "category": "positive_campaign",
+      "vote_promotion": true,
+      "candidates":[
+         {
+            "first_name": "Daniel Martín",
+            "last_name1": "Anaya",
+            "last_name2": "Padua"
+         }
+      ],
+      "position": "Magistrado de Circuito en Materia Administrativa",
+      "location": "Cuajimalpa, Álvaro Obregón y Magdalena Contreras"
+   },
+   "1427504778619095":{
+      "category": "other_topic",
+      "vote_promotion": false
+   },
+   "1396073068479479":{
+      "category": "multitopic",
+      "vote_promotion": false
+   }
+}

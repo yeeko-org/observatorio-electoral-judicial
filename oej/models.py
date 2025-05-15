@@ -161,11 +161,22 @@ class Seat(models.Model):
     shared_offices = models.IntegerField(
         default=0, verbose_name='Número de cargos compartidos')
 
+    has_simulations = models.BooleanField(
+        default=False, verbose_name='Simulaciones realizadas')
     gender_forced = models.IntegerField(
         default=0, verbose_name='Por paridad, debe ser mujer')
-    gender_probability = models.DecimalField(
+    forced_probability_hombres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
-        verbose_name='Probabilidad de regla de paridad')
+        verbose_name='Prob. de que por paridad los hombres no sean elegidos')
+    forced_probability_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Prob. de que por paridad las mujeres sean elegidas')
+    circuit_forced_probability_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Prob. de que por paridad los hombres no sean elegidos')
+    circuit_forced_probability_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, default=0,
+        verbose_name='Prob. de que por paridad las mujeres sean elegidas')
 
     probability_hombres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
@@ -173,6 +184,18 @@ class Seat(models.Model):
     probability_mujeres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
         verbose_name='Probabilidad de mujeres')
+    final_probability_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Probabilidad final de hombres')
+    final_probability_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Probabilidad final de mujeres')
+    circuit_probability_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Última probabilidad de hombres')
+    circuit_probability_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Última probabilidad de mujeres')
     selected_hombres = models.DecimalField(
         max_digits=5, decimal_places=2, default=0,
         verbose_name='Hombres elegidos')
@@ -185,12 +208,21 @@ class Seat(models.Model):
     final_selected_mujeres = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
         verbose_name='Mujeres elegidas (final)')
+    circuit_selected_hombres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Hombres elegidos (último)')
+    circuit_selected_mujeres = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Mujeres elegidas (último)')
 
     def save(self, *args, **kwargs):
-        import math
         if self.offices_hombres or self.offices_mujeres or self.shared_offices:
             super(Seat, self).save(*args, **kwargs)
+        self.save_shared(False)
+        super(Seat, self).save(*args, **kwargs)
 
+    def save_shared(self, direct=True):
+        import math
         offices_mujeres = 0
         offices_hombres = 0
 
@@ -198,18 +230,22 @@ class Seat(models.Model):
         shared_offices = 0
 
         if self.real_hombres == 0:
-            offices_mujeres = self.total_offices
+            offices_mujeres = min(self.total_offices, self.real_mujeres)
+        elif self.real_mujeres == 0:
+            offices_hombres = min(self.total_offices, self.real_hombres)
         elif self.total_offices == 1:
             shared_offices = 1
         else:
             min_women = math.ceil(self.total_offices / 2)
             offices_mujeres = min(min_women, self.real_mujeres)
-            offices_hombres = self.total_offices - offices_mujeres
+            prov_offices_hombres = self.total_offices - offices_mujeres
+            offices_hombres = min(prov_offices_hombres, self.real_hombres)
 
         self.shared_offices = shared_offices
         self.offices_mujeres = offices_mujeres
         self.offices_hombres = offices_hombres
-        super(Seat, self).save(*args, **kwargs)
+        if direct:
+            self.save()
 
     def __str__(self):
         return f"{self.position} - {self.state} - {self.circunscription}"
@@ -305,12 +341,19 @@ class Candidate(models.Model):
     final_anomaly = models.ForeignKey(
         Anomaly, on_delete=models.CASCADE, blank=True, null=True,
         related_name='final_candidates')
+    simulations = models.JSONField(
+        blank=True, null=True, verbose_name='Simulaciones')
+    winners = models.JSONField(
+        blank=True, null=True, verbose_name='Ganadores')
     probability = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
         verbose_name='Probabilidad de ser candidato')
     final_probability = models.DecimalField(
         max_digits=5, decimal_places=2, blank=True, null=True,
         verbose_name='Probabilidad final de ser candidato')
+    circuit_probability = models.DecimalField(
+        max_digits=5, decimal_places=2, blank=True, null=True,
+        verbose_name='Última probabilidad de ser candidato')
 
     @property
     def position(self):
@@ -434,40 +477,6 @@ class Candidate(models.Model):
                 photo_small_name, ContentFile(output.getvalue()), save=False)
 
             print(f"Imagen guardada exitosamente como {photo_small_name}.")
-        except Exception as e:
-            print(f"Error al procesar la imagen: {e}")
-
-    def save_image_from_url_old(self):
-        from PIL import Image
-        from io import BytesIO
-
-        if not self.ine_photo:
-            return
-
-        image_content = self.get_photo_content()
-        if not image_content:
-            return
-        img = Image.open(BytesIO(image_content))
-        # Get original dimensions
-        width, height = img.size
-
-        # Set maximum width to 100px and calculate height to maintain aspect ratio
-        max_width = 200
-        new_height = int(height * (max_width / width))
-        try:
-            img_small = img.resize((max_width, new_height), Image.LANCZOS)
-
-            if img_small.mode == 'RGBA':
-                img_small = img_small.convert('RGB')
-            output = BytesIO()
-            img_small.save(output, format='JPEG', quality=85)
-            output.seek(0)
-            file_name = self.ine_photo.split('/')[-1]
-            photo_small_name = f"small_{file_name}"
-            self.photo_small.save(
-                photo_small_name, ContentFile(output.getvalue()), save=False)
-
-            print(f"Imagen guardada exitosamente como {file_name}.")
         except Exception as e:
             print(f"Error al procesar la imagen: {e}")
 
