@@ -3,28 +3,8 @@ from rest_framework import serializers
 from oej.models import Position, StatusControl, Seat, Candidate
 
 
-class CandidateExportSerializer(serializers.ModelSerializer):
-    id = serializers.IntegerField(source='id')
-    id_ine = serializers.CharField(source='id_ine')
-    num_list = serializers.CharField(source='num_list')
-    name = serializers.CharField(source='full_name')
-    position_name = serializers.CharField(source='seat.position.short_name')
-    circunscription_name = serializers.CharField(
-        source='seat.judicial_district.short_name')
-
-    class Meta:
-        model = Candidate
-        fields = [
-            'id',
-            'id_ine',
-            'num_list',
-            'name',
-            'position_name',
-            'circunscription_name',
-        ]
-
-
 class SeatExportSerializer(serializers.ModelSerializer):
+    seat_id = serializers.IntegerField(source='id')
     state = serializers.CharField(
         source='judicial_district.state.short_name')
     numero_jed = serializers.IntegerField(source='judicial_district.number')
@@ -37,7 +17,7 @@ class SeatExportSerializer(serializers.ModelSerializer):
     class Meta:
         model = Seat
         fields = [
-            'id',
+            'seat_id',
             'state',
             'numero_jed',
             'position_name',
@@ -46,6 +26,9 @@ class SeatExportSerializer(serializers.ModelSerializer):
             'total_vacantes',
             'real_mujeres',
             'real_hombres',
+            'offices_mujeres',
+            'offices_hombres',
+            'shared_offices',
             'squares_mujeres',
             'squares_hombres',
             'probability_mujeres',
@@ -54,10 +37,7 @@ class SeatExportSerializer(serializers.ModelSerializer):
             'final_probability_hombres',
             'circuit_probability_mujeres',
             'circuit_probability_hombres',
-            'offices_mujeres',
-            'offices_hombres',
-            'shared_offices',
-            'gender_forced',
+            # 'gender_forced',
             'forced_probability_mujeres',
             'forced_probability_hombres',
             'circuit_forced_probability_mujeres',
@@ -69,3 +49,26 @@ class SeatExportSerializer(serializers.ModelSerializer):
             'circuit_selected_mujeres',
             'circuit_selected_hombres',
         ]
+
+
+class CandidateExportSerializer(serializers.ModelSerializer):
+    candidate_id = serializers.IntegerField(source='id')
+    seat = SeatExportSerializer()
+
+    class Meta:
+        model = Candidate
+        fields = [
+            'candidate_id',
+            'id_ine',
+            'num_list',
+            'full_name',
+            'sex',
+            'probability',
+            'final_probability',
+            'circuit_probability',
+            'anomaly',
+            'final_anomaly',
+            'circuit_anomaly',
+            'seat',
+        ]
+

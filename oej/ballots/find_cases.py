@@ -3,6 +3,7 @@ import json
 from lxml.html.diff import tag_token
 from matplotlib.style.core import available
 
+from oej.ballots.simulator import ElectionSimulator
 from oej.cards.load_candidates import LoadCandidates
 from django.conf import settings
 from oej.models import Seat, Position, Candidate
@@ -82,37 +83,67 @@ class ResearchCases(LoadCandidates):
         anomalies = [
             {
                 "key_name": "same_quantity",
-                "name": "Misma cantidad de cargos y candidaturas",
+                "name": "Misma cantidad de cargos y personas candidatas",
+            },
+            {
+                "key_name": "same_quantity_men",
+                "name": "Victoria porque hombres = cargos para hombres",
+                "description": "Misma cantidad de personas candidatas y de cargos "
+                        "asignados a hombres",
+            },
+            {
+                "key_name": "same_quantity_women",
+                "name": "Victoria porque mujeres = cargos para mujeres",
+                "description": "Misma cantidad de personas candidatas y de cargos "
+                        "asignados a mujeres",
+            },
+            {
+                "key_name": "winner_all_votes_men",
+                "name": "Victoria porque el hombre no divide los votos",
+                "description": "Hay 1 vacante, pero solo hay "
+                               "un candidato hombre y varias candidatas mujeres",
+            },
+            {
+                "key_name": "winner_all_votes_women",
+                "name": "Victoria porque la mujer no divide los votos",
+                "description": "Hay 1 vacante, pero solo hay "
+                               "una candidata mujer y varios candidatos hombres",
+            },
+            {
+                "key_name": "looser_divided_women",
+                "name": "Derrota de mujeres por dividir el voto",
+                "description": "Las mujeres pierden porque dividen en voto,"
+                               "mientras el único hombre tiene todos los votos"
+            },
+            {
+                "key_name": "looser_divided_men",
+                "name": "Derrota de hombres por dividir el voto",
+                "description": "Los hombres pierden porque dividen en voto,"
+                               "mientras la única mujer tiene todos los votos"
             },
             {
                 "key_name": "double_tie",
                 "name": "Doble empate",
-                "description": "1 cargo, pero 1 casilla y 1 candidato por cada sexo",
+                "description": "1 vacantes disponible, pero "
+                               "una candidata mujer y un candidato hombre",
             },
             {
-                "key_name": "winner",
-                "name": "Victoria asegurada",
-                "description": "Hay 1, 2 o 3 cargos, 1 candidato y una casilla "
-                               "de un sexo y más de 1 del otro sexo.",
+                "key_name": "hard_victory_man",
+                "name": "Derrota muy probable por gran división del voto de hombres",
+                "description": "Hay 1 vacante disponible, más candidatos "
+                               "hombres que candidatas mujeres "
+                               "los hombres se dividen mucho más el voto que "
+                               "las mujeres y es muy probable la derrota de "
+                               "los hombres "
             },
             {
-                "key_name": "looser",
-                "name": "Derrota asegurada",
-                "description": (
-                    "El escenario anterior con solo 1 cargo disponible y "
-                    "varios competidores de un sexo y solo uno del otro."),
-            },
-            {
-                "key_name": "easy_victory",
-                "name": "Victoria por cantidad",
-                "description": "Ganará porque hay pocas personas de su sexo"
-                               " y muchos del otro sexo",
-            },
-            {
-                "key_name": "hard_victory",
-                "name": "Derrota por cantidad",
-                "description": "Perderá porque hay muchas personas de su sexo "
-                               "y pocas del otro sexo",
+                "key_name": "hard_victory_women",
+                "name": "Derrota muy probable por gran división del voto de mujeres",
+                "description": "Hay 1 vacante disponible, más candidatas "
+                               "mujeres que candidatos hombres "
+                               "las mujeres se dividen mucho más el voto que "
+                               "los hombres y es muy probable la derrota de "
+                               "las mujeres "
             },
             {
                 "key_name": "forced_looser",
@@ -133,6 +164,20 @@ class ResearchCases(LoadCandidates):
         import json
         with open(self.base_path, "r", encoding="utf-8") as file:
             self.all_districts = json.load(file)
+
+    def assign_anomalies(self):
+        base_seats = Seat.objects.filter(
+            position__by_circuit=True, )
+        for seat in base_seats:
+            if seat.total_offices == seat.real_hombres + seat.real_mujeres:
+                seat.candidates.all().update(
+                    anomaly='same_quantity')
+            elif seat.offices_hombres and seat.offices_hombres == seat.real_hombres:
+                seat.candidates.all().update(
+                    anomaly='same_quantity_men')
+            elif seat.offices_mujeres and seat.offices_mujeres == seat.real_mujeres:
+                seat.candidates.all().update(
+                    anomaly='same_quantity_women')
 
     def process_all_districts(self):
         by_circ_dist = set()
@@ -316,7 +361,7 @@ class ResearchCases(LoadCandidates):
             # seat.save()
             total_real = seat.real_hombres + seat.real_mujeres
             ready = { "hombres": False, "mujeres": False }
-            if total_real == seat.total_offices:
+            if total_real <= seat.total_offices:
                 seat.candidates.all().update(
                     anomaly_id="same_quantity", probability=100)
                 if seat.real_mujeres == 0:
@@ -380,7 +425,8 @@ class ResearchCases(LoadCandidates):
         if not jed_id:
             Seat.objects.all().update(
                 forced_probability_hombres=0, forced_probability_mujeres=0,
-                circuit_forced_probability_hombres=0, circuit_forced_probability_mujeres=0,
+                circuit_forced_probability_hombres=0,
+                circuit_forced_probability_mujeres=0,
                 final_selected_hombres=None, final_selected_mujeres=None,
                 final_probability_hombres=None, final_probability_mujeres=None,
                 circuit_probability_hombres=None, circuit_probability_mujeres=None,
@@ -927,3 +973,84 @@ def clean_name(name):
     name = name.replace("\n", " ")
     name = re.sub(r'\s+', ' ', name)
     return name.strip()
+
+
+def mini_test():
+    from oej.models import Candidate, Seat
+    from oej.simulator import ElectionSimulator
+    self = ElectionSimulator()
+    min_offices_women = 1
+    offices_mujeres = 0
+
+    for seat in shared_seats:
+        candidates = seat.candidates.all()
+        sexes = [('Mujer', 'mujeres'), ('Hombre', 'hombres')]
+        for sex, plural in sexes:
+            sex_candidates = candidates.filter(sex=sex)
+            self.generate_full_simulation(
+                seat, sex_candidates, getattr(seat, f"squares_{plural}"))
+
+    for seat in shared_seats:
+        for iteration_idx in range(self.iterations):
+            self.calculate_seat_winners(seat, iteration_idx)
+
+
+    for iter_idx in range(self.iterations):
+        women_winners = [
+            candidate for candidate in self.simulation_data.values()
+            if not candidate["is_man"] and
+               candidate["simulate"][iter_idx]["init_winner"]]
+        women_winners_seat_ids = {
+            candidate["seat"] for candidate in women_winners}
+        men_winners = [
+            candidate for candidate in self.simulation_data.values()
+            if candidate["is_man"]
+               and candidate["simulate"][iter_idx]["init_winner"]]
+        men_winners_seat_ids = {
+            candidate["seat"] for candidate in men_winners}
+        pending_women = (
+                min_offices_women - offices_mujeres - len(women_winners))
+
+        if pending_women <= 0:
+            return
+        last_women_loosers = []
+        for candidate in self.simulation_data.values():
+            if not candidate["is_man"]:
+                continue
+            init_winner = candidate["simulate"][iter_idx]["init_winner"]
+            already_seat = candidate["seat"] in women_winners_seat_ids
+            seat_men_winner = candidate["seat"] in men_winners_seat_ids
+            if not init_winner and not already_seat and seat_men_winner:
+                last_women_loosers.append(candidate)
+        if not last_women_loosers:
+            # print("!!No hay ningún last_women_loosers")
+            return
+        sorted_women_loosers = sorted(
+            last_women_loosers,
+            key=lambda x: x["simulate"][iter_idx]["votes"],
+            reverse=True
+        )
+        new_seat_ids = set()
+        for candidate in sorted_women_loosers:
+            seat_id = candidate["seat"]
+            cand_id = candidate["id"]
+            if seat_id not in new_seat_ids:
+                new_seat_ids.add(seat_id)
+                self.simulation_data[cand_id]["final_winner"] += 1
+                self.simulation_data[cand_id]["circuit_winner"] += 1
+                self.simulation_data[cand_id]["forced"] += 1
+                self.simulation_data[cand_id]["simulate"][iter_idx]["final_winner"] = True
+                self.simulation_data[cand_id]["simulate"][iter_idx]["circuit_winner"] = True
+                if psending_women <= len(new_seat_ids):
+                    break
+        new_men_no_winners = [
+            candidate for candidate in men_winners
+                if candidate["seat"] in new_seat_ids
+        ]
+        for candidate in new_men_no_winners:
+            cand_id = candidate["id"]
+            self.simulation_data[cand_id]["final_winner"] -= 1
+            self.simulation_data[cand_id]["circuit_winner"] -= 1
+            self.simulation_data[cand_id]["forced"] -= 1
+            self.simulation_data[cand_id]["simulate"][iter_idx]["final_winner"] = False
+            self.simulation_data[cand_id]["simulate"][iter_idx]["circuit_winner"] = False

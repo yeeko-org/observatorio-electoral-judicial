@@ -166,53 +166,53 @@ class Seat(models.Model):
     gender_forced = models.IntegerField(
         default=0, verbose_name='Por paridad, debe ser mujer')
     forced_probability_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Prob. de que por paridad los hombres no sean elegidos')
     forced_probability_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Prob. de que por paridad las mujeres sean elegidas')
     circuit_forced_probability_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Prob. de que por paridad los hombres no sean elegidos')
     circuit_forced_probability_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Prob. de que por paridad las mujeres sean elegidas')
 
     probability_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Probabilidad de hombres')
     probability_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Probabilidad de mujeres')
     final_probability_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Probabilidad final de hombres')
     final_probability_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Probabilidad final de mujeres')
     circuit_probability_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Última probabilidad de hombres')
     circuit_probability_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Última probabilidad de mujeres')
     selected_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Hombres elegidos')
     selected_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, default=0,
+        max_digits=6, decimal_places=3, default=0,
         verbose_name='Mujeres elegidas')
     final_selected_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Hombres elegidos (final)')
     final_selected_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Mujeres elegidas (final)')
     circuit_selected_hombres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Hombres elegidos (último)')
     circuit_selected_mujeres = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Mujeres elegidas (último)')
 
     def save(self, *args, **kwargs):
@@ -341,18 +341,21 @@ class Candidate(models.Model):
     final_anomaly = models.ForeignKey(
         Anomaly, on_delete=models.CASCADE, blank=True, null=True,
         related_name='final_candidates')
+    circuit_anomaly = models.ForeignKey(
+        Anomaly, on_delete=models.CASCADE, blank=True, null=True,
+        related_name='circuit_candidates')
     simulations = models.JSONField(
         blank=True, null=True, verbose_name='Simulaciones')
     winners = models.JSONField(
         blank=True, null=True, verbose_name='Ganadores')
     probability = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Probabilidad de ser candidato')
     final_probability = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Probabilidad final de ser candidato')
     circuit_probability = models.DecimalField(
-        max_digits=5, decimal_places=2, blank=True, null=True,
+        max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Última probabilidad de ser candidato')
 
     @property
@@ -486,6 +489,20 @@ class Candidate(models.Model):
     class Meta:
         verbose_name = 'Candidato'
         verbose_name_plural = 'Candidatos'
+
+
+class SimulationSeat(models.Model):
+
+    seat = models.ForeignKey(
+        Seat, on_delete=models.CASCADE, related_name='simulation_seats')
+    simulation_params = models.JSONField(blank=True, null=True)
+    simulation_text = models.TextField(blank=True, null=True)
+    simulation_ia = models.TextField(blank=True, null=True)
+    simulation_summary = models.TextField(blank=True, null=True)
+
+    class Meta:
+        verbose_name = 'Simulación'
+        verbose_name_plural = 'Simulaciones'
 
 
 class ProfessionalLicense(models.Model):

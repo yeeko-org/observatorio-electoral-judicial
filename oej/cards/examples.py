@@ -182,9 +182,11 @@ def base_offices():
 
 
 def exports():
-    from oej.ballots.counters import count_by_district, count_by_seat
-    # count_by_district()
-    count_by_seat()
+    from oej.ballots.exports import (
+        export_seats, export_candidates, count_by_district)
+    count_by_district()
+    export_seats()
+    export_candidates()
 
 
 def main():
@@ -206,10 +208,10 @@ def main_by_circuit():
     research.post_gender_by_circuit()
 
 
-def exec_chaotic():
-    from oej.ballots.counters import chaotic_explore, total_candidates, candidates_by_sex
-    # chaotic_explore()
-    # total_candidates()
+def print_counters():
+    from oej.ballots.counters import (
+        chaotic_explore, total_candidates, candidates_by_sex)
+    total_candidates()
     candidates_by_sex()
 
 
@@ -229,14 +231,12 @@ def start_simulator():
     # cases = [
     #     { "total_offices": 1, "real_hombres": 1, "real_mujeres": 1 },
     cases = [
-        # { "real_hombres": 2, "real_mujeres": 2 },
         { "real_hombres": 2, "real_mujeres": 3 },
         { "real_hombres": 2, "real_mujeres": 4 },
-        { "real_hombres": 2, "real_mujeres": 5 },
+        # { "real_hombres": 2, "real_mujeres": 5 },
+        # { "real_hombres": 2, "real_mujeres": 6 },
         # { "real_hombres": 3, "real_mujeres": 4 },
         # { "real_hombres": 3, "real_mujeres": 5 },
-        # { "real_hombres": 4, "real_mujeres": 5 },
-        # { "real_hombres": 4, "real_mujeres": 6 },
     ]
     for case in cases:
         case["squares_hombres"] = 1
@@ -255,7 +255,7 @@ def start_simulator():
     # Ejecutar con distribución Zipf/Pareto
     # simulator.simulate_elections(
     #     simulation_type="zipf_pareto", zipf_param=1.3)
-    simulator.base_factor = 20
+    simulator.base_factor = 22
     simulator.simulate_fake_elections(
         'dirichlet', cases, zipf_param=1.1, concentration_factor=20)
     # simulator.simulate_fake_elections(

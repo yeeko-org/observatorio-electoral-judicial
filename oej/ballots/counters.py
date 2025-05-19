@@ -2,6 +2,113 @@ from oej.cards.load_from_ine import LoadData
 import os
 
 
+def show_as_table(data):
+    from prettytable import PrettyTable
+    try:
+        table = PrettyTable()
+        table.field_names = data[0].keys()
+        for row in data:
+            table.add_row(row.values())
+        print(table)
+    except Exception as e:
+        print(f"Error printing table: {e}")
+
+
+def print_to_copy_to_xls(data):
+    """
+    Imprime los datos en un formato que se puede copiar a Excel.
+    """
+    for key in data[0].keys():
+        print(key, end="\t")
+    print()
+    for row in data:
+        print("\t".join(str(value) for value in row.values()))
+
+
+def calc_simulated_range(
+        probabilities, nivel_confianza=0.95, n_simulaciones=10000):
+    from collections import Counter
+    import numpy as np
+    """
+    Calcula el rango mediante simulación Monte Carlo (más preciso).
+    Altamente optimizado para valores repetidos.
+    """
+    conteo_probs = Counter(probabilities)
+
+    # Calcular victorias esperadas
+    victorias_esperadas = sum(
+        p * conteo for p, conteo in conteo_probs.items())
+
+    # Simular de manera eficiente
+    results = np.zeros(n_simulaciones)
+    for p, conteo in conteo_probs.items():
+        # Simular 'conteo' eventos con probabilidad 'p' de una vez
+        try:
+            results += np.random.binomial(n=conteo, p=p, size=n_simulaciones)
+        except Exception as e:
+            print(p, conteo)
+            raise Exception(e)
+
+    # Calcular percentiles para el intervalo del 95%
+    limit_percent = (1 - nivel_confianza) / 2 * 100  # Convertir a porcentaje
+    limite_inferior = np.percentile(results, limit_percent)
+    limite_superior = np.percentile(results, 100 - limit_percent)
+    print(victorias_esperadas)
+    print(f"{limite_inferior} - {limite_superior}")
+    return victorias_esperadas, limite_inferior, limite_superior
+
+
+def generate_ranges(candidates=None, show_prints=True):
+    from oej.models import Candidate
+    from django.db.models import Sum, Count
+
+    if not candidates:
+        candidates = Candidate.objects.filter(seat__position__by_circuit=True)
+
+    ranges = [
+        [(0, 0.0001), {"idx": 0, "add": "below_left"}],  # derrota asegurada
+        [(0.0001, 1), {"idx": 2, "add": "below_right"}],  # derrota asegurada
+        [(1, 7), {"idx": 3}],  # competición artificial (probabilidades menores a las aparentes)
+        [(7, 15), {"idx": 6}],  # más de 6 competidores
+        [(15, 18), {"idx": 7}],  # +- 6 competidores
+        [(18, 22), {"idx": 8}],  # +- 5 competidores
+        [(22, 30), {"idx": 9}],  # +- 4 competidores
+        [(30, 45), {"idx": 10}],  # +- 3 competidores
+        [(45, 55), {"idx": 11}], # un competidor
+        [(55, 99), {"idx": 12}], # más de la mitad de cargos respecto a competidores
+        [(99, 201), {"idx": 15, "add": "above_right"}], # victoria asegurada
+    ]
+    all_ranges = []
+    for prob_range, extra_data in ranges:
+        min_value, max_value = prob_range
+        range_data = {
+            "title": f"De {min_value} a {max_value}",
+            "hombres": 0,
+            "mujeres": 0,
+            "personas_electas": 0,
+        }
+        range_data.update(extra_data)
+        candidates_by_sex = candidates.filter(
+                circuit_probability__gte=min_value,
+                circuit_probability__lt=max_value,
+            )\
+            .values('sex', 'seat__position__short_name')\
+            .annotate(count=Count('id'), prob=Sum('circuit_probability'))
+        suma = 0
+        prob_sum = 0
+        for obj in candidates_by_sex:
+            suma += obj['count']
+            prob_sum += obj['prob']
+            if obj["sex"] == "Hombre":
+                range_data["hombres"] += obj['count']
+            else:
+                range_data["mujeres"] += obj['count']
+        range_data["personas_electas"] += prob_sum
+        range_data["suma"] = suma
+        all_ranges.append(range_data)
+    return all_ranges
+
+
 def count_candidatures(collections=None):
     import math
     if collections is None:
@@ -79,124 +186,6 @@ def count_candidatures(collections=None):
         # print(
         # f"Jueces: {value['jueces']}, Magistrados: {value['magistrados']}")
 
-
-def generate_stats():
-    from oej.models import Candidate
-    from django.db.models import Sum, Count, Avg, F
-
-    candidates = Candidate.objects.filter(seat__position_id__gt=4)
-    total_candidates = candidates.count()
-    print(f"Total candidates: {total_candidates}")
-
-    simple_candidates = candidates\
-        .values('sex', 'seat__position__short_name')\
-        .annotate(count=Count('id'))
-    for obj in simple_candidates:
-        print(obj)
-        print(f"%{obj['count'] / total_candidates * 100:.2f}%")
-
-    simple_candidates_by_sex = candidates\
-        .values('sex')\
-        .annotate(count=Count('id'))
-    for obj in simple_candidates_by_sex:
-        print(obj)
-        print(f"%{obj['count'] / total_candidates * 100:.2f}%")
-
-
-def generate_ranges(candidates=None, show_prints=True):
-    from oej.models import Candidate
-    from django.db.models import Sum, Count, Avg, F
-
-    if not candidates:
-        candidates = Candidate.objects.filter(seat__position__by_circuit=True)
-
-    ranges = [
-        (0, 0.000001),  # derrota asegurada
-        (0.000001, 0.5),  # derrota asegurada
-        (0.5, 15),  # más de 6 competidores
-        # (15, 22),  # entre 5 y 6 competidores
-        (15, 18),  # +- 6 competidores
-        (18, 22),  # +- 5 competidores
-        (22, 30),  # +- 4 competidores
-        (30, 45),  # +- 3 competidores
-        (45, 55), # un competidor
-        (55, 88), # más de la mitad de cargos respecto a competidores
-        (88, 100), # victoria asegurada
-        (100, 201), # victoria asegurada
-    ]
-    all_ranges = []
-    for prob_range in ranges:
-        min_value, max_value = prob_range
-        range_data = {
-            "title": f"De {min_value} a {max_value}",
-            "hombres": 0,
-            "mujeres": 0,
-            "personas_electas": 0,
-            # "Magistraturas de Circuito": 0,
-            # "Juezas y Jueces": 0
-        }
-        candidates_by_sex = candidates.filter(
-                circuit_probability__gte=min_value,
-                circuit_probability__lt=max_value,
-            )\
-            .values('sex', 'seat__position__short_name')\
-            .annotate(count=Count('id'), prob=Sum('circuit_probability'))
-        if show_prints:
-            print(f"\nRange {min_value}-{max_value}:")
-        suma = 0
-        prob_sum = 0
-        for obj in candidates_by_sex:
-            if show_prints:
-                print(obj)
-            suma += obj['count']
-            prob_sum += obj['prob']
-            if obj["sex"] == "Hombre":
-                range_data["hombres"] += obj['count']
-            else:
-                range_data["mujeres"] += obj['count']
-        if show_prints:
-            # elected = suma / candidates.count() * 100
-            print(f"{suma} - %{suma / candidates.count() * 100:.2f}%")
-            print(f"Probabilidad suma: {prob_sum}")
-            range_data["personas_electas"] += prob_sum
-        range_data["suma"] = suma
-        all_ranges.append(range_data)
-    return all_ranges
-
-
-def export_csv(file_path, data):
-    import csv
-    with open(file_path, 'w', newline='', encoding='latin-1') as csv_file:
-        fieldnames = data[0].keys()
-        writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter='|')
-        writer.writeheader()
-        writer.writerows(data)
-
-
-def count_by_district():
-    from oej.models import Candidate, Position
-    from geo.models import JudicialElectoralDistrict, State
-    all_jeds = []
-    circuits = {state.circuit: state for state in State.objects.all()}
-    positions = Position.objects.filter(id__in=[5, 6])
-    for jed in JudicialElectoralDistrict.objects.all():
-        for pos in positions:
-            jed_data = {
-                "jed": jed.id,
-                "number": jed.number,
-                "state": circuits[jed.circuit].short_name,
-                "position": pos.short_name,
-            }
-            aggregations = jed.aggregations(pos)
-            jed_data.update(aggregations)
-            all_jeds.append(jed_data)
-
-    # Export to fixture/districts.csv
-    csv_file_path = 'fixture/districts2.csv'
-    # csv_file_path = 'fixture/easy_districts.csv'
-    export_csv(csv_file_path, all_jeds)
-
-
 def ballot_problems_count():
     from oej.models import Candidate, Position
     from geo.models import JudicialElectoralDistrict, State
@@ -225,48 +214,6 @@ def ballot_problems_count():
     print(f"total_districts", total_districts)
 
 
-def count_by_seat():
-    from oej.models import Seat
-    from api.views.export.serializers import SeatExportSerializer
-
-    seats = Seat.objects.filter(position_id__gt=4)\
-        .select_related('judicial_district__state', 'topic', 'position',
-                        'judicial_district')\
-        .order_by('id')
-    serializer = SeatExportSerializer(seats, many=True)
-    export_csv('fixture/seats.csv', serializer.data)
-
-def count_by_candidate():
-    from oej.models import Seat, Candidate
-    from api.views.export.serializers import SeatExportSerializer
-
-    seats = Seat.objects.filter(position_id__gt=4)\
-        .select_related('judicial_district__state', 'topic', 'position',
-                        'judicial_district')\
-        .order_by('id')
-    serializer = SeatExportSerializer(seats, many=True)
-    export_csv('fixture/seats.csv', serializer.data)
-
-
-def count_by_seat_easy():
-    from geo.models import JudicialElectoralDistrict, State
-    from oej.models import Seat, Position
-    from api.views.export.serializers import SeatExportSerializer
-    easy_seats = []
-    for jed in JudicialElectoralDistrict.objects.all():
-        for pos in Position.objects.filter(id__gt=4):
-            seats = Seat.objects.filter(judicial_district=jed, position=pos)
-            if seats.count() == 1:
-                easy_seat = seats.first()
-                easy_seats.append(easy_seat.id)
-
-    seats = Seat.objects.filter(position_id__gt=4, id__in=easy_seats)\
-        .select_related('judicial_district__state', 'topic', 'position',
-                        'judicial_district')
-    serializer = SeatExportSerializer(seats, many=True)
-    export_csv('fixture/easy_seats.csv', serializer.data)
-
-
 def explore_1():
     from oej.models import Candidate
 
@@ -288,43 +235,9 @@ def explore_1():
         gender_count = alone_candidates.filter(sex=gender).count()
         print(f"Gender {gender}: {gender_count}")
 
-
-def chaotic_explore():
-    from geo.models import JudicialElectoralDistrict, State
-    from oej.models import Seat, Position, Candidate
-    chaotic_seats = []
-    all_districts = JudicialElectoralDistrict.objects.all()\
-        .select_related('state')\
-        .prefetch_related('seats')
-    for jed in JudicialElectoralDistrict.objects.all():
-        for pos in Position.objects.filter(by_circuit=True):
-            seats = Seat.objects.filter(judicial_district=jed, position=pos)
-            all_candidates = Candidate.objects.filter(seat__in=seats)
-            normal_candidates = all_candidates\
-                .filter(circuit_probability__gt=2, circuit_probability__lt=98)\
-                .exclude(circuit_anomaly_id='double_tie')
-            cand_count = all_candidates.count()
-            chaotic_count = cand_count - normal_candidates.count()
-            chaotic_seats.append({
-                "judicial_district": jed.id,
-                "district": jed.number,
-                "state": jed.state.short_name,
-                "position": pos.short_name,
-                "chaotic_count": chaotic_count,
-                "chaotic_candidates": chaotic_count / cand_count * 100,
-                "cand_count": cand_count,
-                "normal_candidates": normal_candidates.count(),
-            })
-
-    sort_chaotic_seats = sorted(
-        chaotic_seats, key=lambda x: x['chaotic_candidates'], reverse=True)
-    for seat in sort_chaotic_seats[:30]:
-        print(seat)
-
-
 def some_equal():
-    from geo.models import JudicialElectoralDistrict, State
-    from oej.models import Seat, Position, Candidate
+    from geo.models import JudicialElectoralDistrict
+    from oej.models import Seat, Position
     full_seats = []
     all_districts = JudicialElectoralDistrict.objects.all()\
         .select_related('state')\
@@ -355,7 +268,6 @@ def some_equal():
 
 
 def total_candidates():
-    from oej.models import Candidate, Seat
     range_data = generate_ranges(show_prints=True)
     show_as_table(range_data)
     print_to_copy_to_xls(range_data)
@@ -363,8 +275,8 @@ def total_candidates():
 
 def candidates_by_sex():
     from oej.models import Candidate, Seat
-    from django.db.models import Sum, Count, Avg, F
-    sexes = ["Hombre", "Mujer"]
+    from django.db.models import Sum
+    sexes = ["Mujer", "Hombre"]
     all_sexes = []
     for sex in sexes:
         print(sex)
@@ -385,6 +297,7 @@ def candidates_by_sex():
         sex_data = {
             "sex": sex,
             "total": base_candidates.count(),
+            "sure_total": sure_total,
             "victories": sure_total + victories,
             "inferior": sure_total + inf,
             "superior": sure_total + sup,
@@ -505,57 +418,37 @@ def candidates_by_power_and_sex():
     print_to_copy_to_xls(all_powers)
 
 
-def show_as_table(data):
-    from prettytable import PrettyTable
-    try:
-        table = PrettyTable()
-        table.field_names = data[0].keys()
-        for row in data:
-            table.add_row(row.values())
-        print(table)
-    except Exception as e:
-        print(f"Error printing table: {e}")
-
-
-def print_to_copy_to_xls(data):
+def chaotic_explore():
     """
-    Imprime los datos en un formato que se puede copiar a Excel.
+    Un candidato caótico es cuando tienen casi 0 o caso 100% de probabilidads
     """
-    for key in data[0].keys():
-        print(key, end="\t")
-    print()
-    for row in data:
-        print("\t".join(str(value) for value in row.values()))
+    from geo.models import JudicialElectoralDistrict
+    from oej.models import Seat, Position, Candidate
+    chaotic_seats = []
+    all_districts = JudicialElectoralDistrict.objects.all()\
+        .select_related('state')\
+        .prefetch_related('seats')
+    for jed in JudicialElectoralDistrict.objects.all():
+        for pos in Position.objects.filter(by_circuit=True):
+            seats = Seat.objects.filter(judicial_district=jed, position=pos)
+            all_candidates = Candidate.objects.filter(seat__in=seats)
+            normal_candidates = all_candidates\
+                .filter(circuit_probability__gt=2, circuit_probability__lt=98)\
+                .exclude(circuit_anomaly_id='double_tie')
+            cand_count = all_candidates.count()
+            chaotic_count = cand_count - normal_candidates.count()
+            chaotic_seats.append({
+                "judicial_district": jed.id,
+                "district": jed.number,
+                "state": jed.state.short_name,
+                "position": pos.short_name,
+                "chaotic_count": chaotic_count,
+                "chaotic_candidates": chaotic_count / cand_count * 100,
+                "cand_count": cand_count,
+                "normal_candidates": normal_candidates.count(),
+            })
 
-
-def calc_simulated_range(
-        probabilities, nivel_confianza=0.95, n_simulaciones=10000):
-    from collections import Counter
-    import numpy as np
-    """
-    Calcula el rango mediante simulación Monte Carlo (más preciso).
-    Altamente optimizado para valores repetidos.
-    """
-    conteo_probs = Counter(probabilities)
-
-    # Calcular victorias esperadas
-    victorias_esperadas = sum(p * conteo for p, conteo in conteo_probs.items())
-
-    # Simular de manera eficiente
-    results = np.zeros(n_simulaciones)
-    for p, conteo in conteo_probs.items():
-        # Simular 'conteo' eventos con probabilidad 'p' de una vez
-        try:
-            results += np.random.binomial(n=conteo, p=p, size=n_simulaciones)
-        except Exception as e:
-            print(p, conteo)
-            raise Exception(e)
-
-    # Calcular percentiles para el intervalo del 95%
-    limit_percent = (1 - nivel_confianza) / 2 * 100  # Convertir a porcentaje
-    limite_inferior = np.percentile(results, limit_percent)
-    limite_superior = np.percentile(results, 100 - limit_percent)
-    print(victorias_esperadas)
-    print(f"{limite_inferior} - {limite_superior}")
-    return victorias_esperadas, limite_inferior, limite_superior
-
+    sort_chaotic_seats = sorted(
+        chaotic_seats, key=lambda x: x['chaotic_candidates'], reverse=True)
+    for seat in sort_chaotic_seats[:30]:
+        print(seat)

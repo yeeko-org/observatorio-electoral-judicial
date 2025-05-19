@@ -54,8 +54,7 @@ class ElectionSimulator:
         self.concentration_factor = 20
         self.zipf_dict = {}
         self.voters_size = 1000
-        self.base_factor = 50
-        self.forced_simulation = False
+        self.base_factor = 22
         self.iteration_idx:int = 0
 
     def simulate_fake_elections(
@@ -109,8 +108,7 @@ class ElectionSimulator:
 
         print(f"Starting {position} of jed {jed}")
         shared_seats = jed.seats \
-            .filter(
-            position=position, shared_offices=1, real_hombres__gte=1)
+            .filter(position=position, shared_offices=1)
 
         for seat in shared_seats:
             candidates = seat.candidates.all()
@@ -144,8 +142,7 @@ class ElectionSimulator:
         self.topic = topic
         self.by_district = False
         shared_seats = Seat.objects.filter(
-            position=position, topic=topic,
-            judicial_district__state=state)
+            position=position, topic=topic, judicial_district__state=state)
 
         for seat in shared_seats:
             candidates = seat.candidates.all()
@@ -270,58 +267,65 @@ class ElectionSimulator:
             })
 
     def assign_by_equity_rules(
-            self, min_offices_women, offices_mujeres, iteration_idx):
+            self, min_offices_women, offices_mujeres, iter_idx):
         women_winners = [
             candidate for candidate in self.simulation_data.values()
             if not candidate["is_man"] and
-               candidate["simulate"][iteration_idx]["init_winner"]]
+               candidate["simulate"][iter_idx]["init_winner"]]
         women_winners_seat_ids = {
             candidate["seat"] for candidate in women_winners}
         men_winners = [
             candidate for candidate in self.simulation_data.values()
             if candidate["is_man"]
-               and candidate["simulate"][iteration_idx]["init_winner"]]
-        pending_women = min_offices_women - offices_mujeres - len(women_winners)
+               and candidate["simulate"][iter_idx]["init_winner"]]
+        men_winners_seat_ids = {
+            candidate["seat"] for candidate in men_winners}
+        pending_women = (
+                min_offices_women - offices_mujeres - len(women_winners))
 
-        if pending_women > 0:
-            last_women_loosers = [
-                candidate for candidate in self.simulation_data.values()
-                if not candidate["is_man"]
-                   and not candidate["simulate"][iteration_idx]["init_winner"]
-                   and not candidate["seat"] in women_winners_seat_ids
-            ]
-            if not last_women_loosers:
-                # print("!!No hay ningún last_women_loosers")
-                return
-            sorted_loosers = sorted(
-                last_women_loosers,
-                key=lambda x: x["simulate"][iteration_idx]["votes"],
-                reverse=True
-            )
-            new_seat_ids = set()
-            for candidate in sorted_loosers:
-                seat_id = candidate["seat"]
-                cand_id = candidate["id"]
-                if seat_id not in new_seat_ids:
-                    new_seat_ids.add(seat_id)
-                    self.simulation_data[cand_id]["final_winner"] += 1
-                    self.simulation_data[cand_id]["circuit_winner"] += 1
-                    self.simulation_data[cand_id]["forced"] += 1
-                    self.simulation_data[cand_id]["simulate"][iteration_idx]["final_winner"] = True
-                    self.simulation_data[cand_id]["simulate"][iteration_idx]["circuit_winner"] = True
-                    if pending_women >= len(new_seat_ids):
-                        break
-            new_men_no_winners = [
-                candidate for candidate in men_winners
+        if pending_women <= 0:
+            return
+        last_women_loosers = []
+        for candidate in self.simulation_data.values():
+            if candidate["is_man"]:
+                continue
+            init_winner = candidate["simulate"][iter_idx]["init_winner"]
+            already_seat = candidate["seat"] in women_winners_seat_ids
+            seat_men_winner = candidate["seat"] in men_winners_seat_ids
+            if not init_winner and not already_seat and seat_men_winner:
+                last_women_loosers.append(candidate)
+        if not last_women_loosers:
+            # print("!!No hay ningún last_women_loosers")
+            return
+        sorted_women_loosers = sorted(
+            last_women_loosers,
+            key=lambda x: x["simulate"][iter_idx]["votes"],
+            reverse=True
+        )
+        new_seat_ids = set()
+        for candidate in sorted_women_loosers:
+            seat_id = candidate["seat"]
+            cand_id = candidate["id"]
+            if seat_id not in new_seat_ids:
+                new_seat_ids.add(seat_id)
+                self.simulation_data[cand_id]["final_winner"] += 1
+                self.simulation_data[cand_id]["circuit_winner"] += 1
+                self.simulation_data[cand_id]["forced"] += 1
+                self.simulation_data[cand_id]["simulate"][iter_idx]["final_winner"] = True
+                self.simulation_data[cand_id]["simulate"][iter_idx]["circuit_winner"] = True
+                if pending_women <= len(new_seat_ids):
+                    break
+        new_men_no_winners = [
+            candidate for candidate in men_winners
                 if candidate["seat"] in new_seat_ids
-            ]
-            for candidate in new_men_no_winners:
-                cand_id = candidate["id"]
-                self.simulation_data[cand_id]["final_winner"] -= 1
-                self.simulation_data[cand_id]["circuit_winner"] -= 1
-                self.simulation_data[cand_id]["forced"] -= 1
-                self.simulation_data[cand_id]["simulate"][iteration_idx]["final_winner"] = False
-                self.simulation_data[cand_id]["simulate"][iteration_idx]["circuit_winner"] = False
+        ]
+        for candidate in new_men_no_winners:
+            cand_id = candidate["id"]
+            self.simulation_data[cand_id]["final_winner"] -= 1
+            self.simulation_data[cand_id]["circuit_winner"] -= 1
+            self.simulation_data[cand_id]["forced"] -= 1
+            self.simulation_data[cand_id]["simulate"][iter_idx]["final_winner"] = False
+            self.simulation_data[cand_id]["simulate"][iter_idx]["circuit_winner"] = False
 
     def assign_topic_district_equity_rules(
             self, topic_seats, iteration_idx, topic:Topic, min_offices_women):
@@ -399,20 +403,20 @@ class ElectionSimulator:
 
     def run_simulation_seat(
             self, seat:Seat | SeatCase | None, idx=0):
-        if self.forced_simulation:
-            return self.run_simulations(seat)
+        # if self.forced_simulation:
+        #     return self.run_simulations(seat)
         # Calcular asignación de cargos (mantiene tu función original)
         # case = self.build_case(seat)
         if seat.shared_offices:
-            values = [
-                getattr(seat, field) for field in self.case_fields]
-            # Generar una clave única para el caso con un join -
-            key = "-".join([str(value) for value in values])
             if seat.real_mujeres == seat.real_hombres:
                 sum_real = seat.real_mujeres + seat.real_hombres
                 average = 1 / sum_real * 100
                 return average, average
 
+            values = [
+                getattr(seat, field) for field in self.case_fields]
+            # Generar una clave única para el caso con un join -
+            key = "-".join([str(value) for value in values])
             # values = case.values()
             if not self.show_results and key in self.case_results:
                 return self.case_results[key]
@@ -531,8 +535,6 @@ class ElectionSimulator:
         return popularity
 
     def simulate_voting(self, candidates, squares):
-        if self.forced_simulation:
-            pass
 
         if self.simulation_type == "zipf_pareto":
             popularity = self.generate_popularity(candidates)
@@ -648,7 +650,8 @@ class ElectionSimulator:
         plt.xlabel('ID Candidato')
         plt.grid(axis='y', linestyle='--', alpha=0.7)
 
-        common_path = f"fixture/charts/02case{idx+1}_{self.simulation_type}"
+        common_path = f"fixture/charts/03case{idx+1}_{self.simulation_type}"
+        common_path += f"_{self.iterations}"
         if self.simulation_type == "zipf_pareto":
             common_path += f"_zipf_{self.zipf_param}"
         else:
@@ -659,9 +662,10 @@ class ElectionSimulator:
             wins_value = wins[i]
             percentage = percentages[i]
             plt.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 1,
-                     f'{wins_value}\n({percentage:.1f}%)',
+                     f'{wins_value}\n({percentage:.2f}%)',
                      ha='center', va='bottom', rotation=0, fontsize=8,
-                     bbox=dict(facecolor='white', alpha=0.8, boxstyle='round,pad=0.2'))
+                     bbox=dict(facecolor='white', alpha=0.8,
+                               boxstyle='round,pad=0.2'))
 
         # Añadir leyenda
         legend_elements = [
@@ -763,5 +767,5 @@ class ElectionSimulator:
                 seat.candidates\
                     .filter(sex=sex_singular)\
                     .update(**{field_base: avg})
-        seat.save()
+        # seat.save()
         return seat

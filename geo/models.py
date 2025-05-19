@@ -129,7 +129,8 @@ class JudicialElectoralDistrict(models.Model):
     def aggregations(self, position=None) -> dict:
         fields = ['total_offices', 'real_hombres', 'real_mujeres',
                   'selected_hombres', 'selected_mujeres',
-                  'offices_hombres', 'offices_mujeres']
+                  'offices_hombres', 'offices_mujeres',
+                  'squares_hombres', 'squares_mujeres']
         query = { aggr: Sum(aggr) for aggr in fields }
         seats = self.seats.all()
         if position:

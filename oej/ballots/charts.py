@@ -1,3 +1,7 @@
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+import numpy as np
+
 
 def show_chart():
     import pandas as pd
@@ -236,4 +240,6 @@ def show_chart_by_range():
 
 
 
-show_chart_by_range()
+# show_chart_by_range()
+
+
