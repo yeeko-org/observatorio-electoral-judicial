@@ -37,7 +37,7 @@ class ElectionSimulator:
     simulation_by_real = {}
 
     def __init__(self, show_results=True):
-        self.iterations = 1000
+        self.iterations = 10000
         # Nuevo parámetro para indicar el tipo de simulación
         self.simulation_type = "dirichlet"  # Opciones: "random", "strategic", "zipf_pareto"
         # Parámetro para distribución Zipf

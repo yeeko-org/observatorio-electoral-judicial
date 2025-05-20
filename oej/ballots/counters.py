@@ -66,9 +66,8 @@ def generate_ranges(candidates=None, show_prints=True):
         candidates = Candidate.objects.filter(seat__position__by_circuit=True)
 
     ranges = [
-        [(0, 0.0001), {"idx": 0, "add": "below_left"}],  # derrota asegurada
-        [(0.0001, 1), {"idx": 2, "add": "below_right"}],  # derrota asegurada
-        [(1, 7), {"idx": 3}],  # competición artificial (probabilidades menores a las aparentes)
+        [(0, 0.0001), {"idx": 0, "add": "above_left"}],  # derrota asegurada
+        [(0.0001, 7), {"idx": 3, "add": "below_left"}],  # derrota asegurada
         [(7, 15), {"idx": 6}],  # más de 6 competidores
         [(15, 18), {"idx": 7}],  # +- 6 competidores
         [(18, 22), {"idx": 8}],  # +- 5 competidores
@@ -76,7 +75,7 @@ def generate_ranges(candidates=None, show_prints=True):
         [(30, 45), {"idx": 10}],  # +- 3 competidores
         [(45, 55), {"idx": 11}], # un competidor
         [(55, 99), {"idx": 12}], # más de la mitad de cargos respecto a competidores
-        [(99, 201), {"idx": 15, "add": "above_right"}], # victoria asegurada
+        [(99, 201), {"idx": 15, "add": "below_right"}], # victoria asegurada
     ]
     all_ranges = []
     for prob_range, extra_data in ranges:
@@ -452,3 +451,69 @@ def chaotic_explore():
         chaotic_seats, key=lambda x: x['chaotic_candidates'], reverse=True)
     for seat in sort_chaotic_seats[:30]:
         print(seat)
+
+
+def generate_ranges_basic():
+
+    ranges = [
+        (0, 0.0001),
+        (0.0001, 7),
+        (7, 15),
+        (15, 18),
+        (18, 22),
+        (22, 30),
+        (30, 45),
+        (45, 55),
+        (55, 99),
+        (99, 201),
+    ]
+
+    csv_file_path = 'fixture/candidates.csv'
+    with open(csv_file_path, 'w', newline='', encoding='utf-8') as csv_file:
+        if final_data:
+            fieldnames = final_data[0].keys()
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+
+            writer.writeheader()
+            for candidate in final_data:
+                writer.writerow(candidate)
+
+
+def generate_ranges_csv():
+    import pandas as pd
+
+    # Definir los rangos (min_value incluyente, max_value excluyente)
+    ranges = [
+        (0, 0.0001),
+        (0.0001, 7),
+        (7, 15),
+        (15, 18),
+        (18, 22),
+        (22, 30),
+        (30, 45),
+        (45, 55),
+        (55, 99),
+        (99, 201),
+    ]
+
+    # Función para encontrar el rango correspondiente a un valor
+    def find_range(value):
+        for min_value, max_value in ranges:
+            if min_value <= value < max_value:
+                return f"De {min_value} a {max_value}"
+        return "Rango no encontrado"  # En caso de que el valor no entre en ningún rango
+
+    # Leer el archivo CSV
+    # Puedes reemplazar 'tu_archivo.csv' con la ruta a tu archivo
+    df = pd.read_csv('fixture/ranges.csv', encoding='utf-8', sep='|')
+
+    # Aplicar la función para crear las nuevas columnas
+    df['rango_mujeres'] = df['prob_mujeres'].apply(find_range)
+    df['rango_hombres'] = df['prob_hombres'].apply(find_range)
+
+    # Guardar el dataframe actualizado a un nuevo archivo CSV
+    # Puedes cambiar 'resultado.csv' por el nombre que prefieras
+    df.to_csv('fixture/result_ranges.csv', index=False)
+
+    # Mostrar una vista previa del resultado
+    print(df.head())
