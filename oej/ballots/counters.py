@@ -1,6 +1,73 @@
 from oej.cards.load_from_ine import LoadData
 import os
 
+ranges = [
+    [(0, 0.0001), {"idx": 0, "add": "above_left"}],  # derrota asegurada
+    [(0.0001, 7), {"idx": 3, "add": "below_left"}],  # derrota asegurada
+    [(7, 15), {"idx": 6}],  # más de 6 competidores
+    [(15, 18), {"idx": 7}],  # +- 6 competidores
+    [(18, 22), {"idx": 8}],  # +- 5 competidores
+    [(22, 30), {"idx": 9}],  # +- 4 competidores
+    [(30, 45), {"idx": 10}],  # +- 3 competidores
+    [(45, 55), {"idx": 11}], # un competidor
+    [(55, 99), {"idx": 12}], # más de la mitad de cargos respecto a competidores
+    [(99, 201), {"idx": 15, "add": "below_right"}], # victoria asegurada
+]
+
+
+def generate_ranges(candidates=None, show_prints=True):
+    from oej.models import Candidate
+    from django.db.models import Sum, Count
+
+    if not candidates:
+        candidates = Candidate.objects.filter(seat__position__by_circuit=True)
+
+    all_ranges = []
+    for prob_range, extra_data in ranges:
+        min_value, max_value = prob_range
+        range_data = {
+            "title": f"De {min_value} a {max_value}",
+            "hombres": 0,
+            "mujeres": 0,
+            "personas_electas": 0,
+        }
+        range_data.update(extra_data)
+        candidates_by_sex = candidates.filter(
+                circuit_probability__gte=min_value,
+                circuit_probability__lt=max_value,
+            )\
+            .values('sex', 'seat__position__short_name')\
+            .annotate(count=Count('id'), prob=Sum('circuit_probability'))
+        suma = 0
+        prob_sum = 0
+        for obj in candidates_by_sex:
+            suma += obj['count']
+            prob_sum += obj['prob']
+            if obj["sex"] == "Hombre":
+                range_data["hombres"] += obj['count']
+            else:
+                range_data["mujeres"] += obj['count']
+        range_data["personas_electas"] += prob_sum
+        range_data["suma"] = suma
+        all_ranges.append(range_data)
+    return all_ranges
+
+
+def find_range(value):
+    for prob_range, extra_data in ranges:
+        min_value, max_value = prob_range
+        try:
+            if min_value <= value < max_value:
+                return f"De {min_value} a {max_value}"
+        except TypeError:
+            print(f"Error with value: {value}, range: {prob_range}")
+            print("type(value)", type(value))
+            print("type(min_value)", type(min_value))
+            print("type(max_value)", type(max_value))
+            raise TypeError(
+                f"Error with value: {value}, range: {prob_range}")
+    return "Rango no encontrado"  # En caso de que el valor no entre en ningún rango
+
 
 def show_as_table(data):
     from prettytable import PrettyTable
@@ -56,56 +123,6 @@ def calc_simulated_range(
     print(victorias_esperadas)
     print(f"{limite_inferior} - {limite_superior}")
     return victorias_esperadas, limite_inferior, limite_superior
-
-
-def generate_ranges(candidates=None, show_prints=True):
-    from oej.models import Candidate
-    from django.db.models import Sum, Count
-
-    if not candidates:
-        candidates = Candidate.objects.filter(seat__position__by_circuit=True)
-
-    ranges = [
-        [(0, 0.0001), {"idx": 0, "add": "above_left"}],  # derrota asegurada
-        [(0.0001, 7), {"idx": 3, "add": "below_left"}],  # derrota asegurada
-        [(7, 15), {"idx": 6}],  # más de 6 competidores
-        [(15, 18), {"idx": 7}],  # +- 6 competidores
-        [(18, 22), {"idx": 8}],  # +- 5 competidores
-        [(22, 30), {"idx": 9}],  # +- 4 competidores
-        [(30, 45), {"idx": 10}],  # +- 3 competidores
-        [(45, 55), {"idx": 11}], # un competidor
-        [(55, 99), {"idx": 12}], # más de la mitad de cargos respecto a competidores
-        [(99, 201), {"idx": 15, "add": "below_right"}], # victoria asegurada
-    ]
-    all_ranges = []
-    for prob_range, extra_data in ranges:
-        min_value, max_value = prob_range
-        range_data = {
-            "title": f"De {min_value} a {max_value}",
-            "hombres": 0,
-            "mujeres": 0,
-            "personas_electas": 0,
-        }
-        range_data.update(extra_data)
-        candidates_by_sex = candidates.filter(
-                circuit_probability__gte=min_value,
-                circuit_probability__lt=max_value,
-            )\
-            .values('sex', 'seat__position__short_name')\
-            .annotate(count=Count('id'), prob=Sum('circuit_probability'))
-        suma = 0
-        prob_sum = 0
-        for obj in candidates_by_sex:
-            suma += obj['count']
-            prob_sum += obj['prob']
-            if obj["sex"] == "Hombre":
-                range_data["hombres"] += obj['count']
-            else:
-                range_data["mujeres"] += obj['count']
-        range_data["personas_electas"] += prob_sum
-        range_data["suma"] = suma
-        all_ranges.append(range_data)
-    return all_ranges
 
 
 def count_candidatures(collections=None):
@@ -451,32 +468,6 @@ def chaotic_explore():
         chaotic_seats, key=lambda x: x['chaotic_candidates'], reverse=True)
     for seat in sort_chaotic_seats[:30]:
         print(seat)
-
-
-def generate_ranges_basic():
-
-    ranges = [
-        (0, 0.0001),
-        (0.0001, 7),
-        (7, 15),
-        (15, 18),
-        (18, 22),
-        (22, 30),
-        (30, 45),
-        (45, 55),
-        (55, 99),
-        (99, 201),
-    ]
-
-    csv_file_path = 'fixture/candidates.csv'
-    with open(csv_file_path, 'w', newline='', encoding='utf-8') as csv_file:
-        if final_data:
-            fieldnames = final_data[0].keys()
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
-
-            writer.writeheader()
-            for candidate in final_data:
-                writer.writerow(candidate)
 
 
 def generate_ranges_csv():

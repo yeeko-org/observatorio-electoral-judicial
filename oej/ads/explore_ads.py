@@ -15,6 +15,19 @@ print("\nCategory distribution:")
 for category, count in categories.most_common():
     print(f"  {category}: {count} ({count / total_entries * 100:.1f}%)")
 
+# 2.1 Count publisher_platforms (list)
+publisher_platforms = Counter()
+for item in data:
+    platforms = item.get('publisher_platforms', [])
+    for platform in platforms:
+        publisher_platforms[platform] += 1
+
+# Print the top 10 publisher platforms
+print("\nTop 10 publisher platforms:")
+for platform, count in publisher_platforms.most_common(10):
+    print(f"  {platform}: {count} ({count / total_entries * 100:.1f}%)")
+
+
 # 3. Count and collect candidates
 all_candidates = []
 for item in data:
@@ -56,3 +69,14 @@ print("\nLOCATION distribution:")
 for location, count in locations.most_common(5000):  # Top 10 locations
     if location:  # Only show non-empty locations
         print(f"  {location}: {count}")
+
+
+# 5. Count page_names
+page_names = Counter(item.get('page_name') for item in data)
+print("\nPage names distribution:")
+# total
+print(f"Total page names: {len(page_names)}")
+for page_name, count in page_names.most_common(100):  # Top 10 page names
+    if page_name:  # Only show non-empty page names
+        print(f"  {page_name}: {count}")
+

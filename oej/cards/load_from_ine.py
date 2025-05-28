@@ -62,22 +62,30 @@ class LoadData(LoadCandidates):
 def main_load(collections=None):
     if collections is None:
         collections = [
+            # {
+            #     "body_short_name": "SCJN",
+            #     "json_file": "scjn.json"
+            # },
+            # {
+            #     "body_short_name": "Sala Superior TEPJF",
+            #     "json_file": "sala_superior.json"
+            # },
+            # {
+            #     "body_short_name": "Sala Regional TEPJF",
+            #     "json_file": "salas_regionales.json"
+            # },
+            # {
+            #     "body_short_name": "TDJ",
+            #     "json_file": "tdj.json"
+            # },
             {
-                "body_short_name": "SCJN",
-                "json_file": "scjn.json"
+                "body_short_name": "Magistraturas de Circuito",
+                "json_file": "magistraturas.json"
             },
             {
-                "body_short_name": "Sala Superior TEPJF",
-                "json_file": "sala_superior.json"
+                "body_short_name": "Juezas y Jueces",
+                "json_file": "jueces_distrito.json"
             },
-            {
-                "body_short_name": "Sala Regional TEPJF",
-                "json_file": "salas_regionales.json"
-            },
-            {
-                "body_short_name": "TDJ",
-                "json_file": "tdj.json"
-            }
         ]
 
     if settings.IS_LOCAL:

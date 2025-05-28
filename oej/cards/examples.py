@@ -182,11 +182,11 @@ def base_offices():
 
 
 def exports():
-    from oej.ballots.exports import (
-        export_seats, export_candidates, count_by_district)
-    count_by_district()
-    export_seats()
-    export_candidates()
+    from oej.ballots.exports import ExportCandidates
+    export = ExportCandidates()
+    export.count_by_district()
+    export.export_seats()
+    export.export_candidates()
 
 
 def main():
@@ -267,4 +267,21 @@ def start_simulator():
 def new_probabilities():
     from oej.ballots.counters import send_all_candidates
     send_all_candidates()
+
+
+def show_loosers():
+    from oej.models import Candidate
+    pass
+    loosers = Candidate.objects.filter(
+        circuit_probability__lt=2, circuit_probability__isnull=False)
+    for candidate in loosers:
+        twitter = candidate.social_accounts.filter(
+            social_network__name="Twitter").first()
+        if twitter:
+            twitter_url = twitter.url
+        else:
+            twitter_url = ""
+        ine_data = candidate.ine_data or {}
+        phone = ine_data.get("telefonoPublico", "")
+        print(f"{candidate.full_name}|{candidate.circuit_probability}|{twitter_url}|{phone}")
 

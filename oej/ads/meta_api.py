@@ -80,6 +80,13 @@ class LoadMetaAds:
         for keyword1, keyword2 in keywords:
             self.get_ads(keyword1, keyword2)
 
+    def get_direct_keywords(self, keywords):
+        for keyword in keywords:
+            keyword = keyword.strip()
+            keyword = keyword.lower()
+            keyword = keyword.replace(" ", "%20")
+            self.get_ads(keyword)
+
     def get_ads(self, keyword1, keyword2=None):
         # post_message_url = ('https://graph.facebook.com/%s/me/messenger_profile?'
         #                     'access_token=%s' % (settings.V_API_FB, token))
@@ -101,10 +108,14 @@ class LoadMetaAds:
             ad_id = ad.get("id")
             if ad_id not in self.all_ads:
                 ad.setdefault("keywords", [])
+                ad.setdefault("category", "new")
                 ad["keywords"].append(simple_search_terms)
                 self.all_ads[ad_id] = ad
             else:
-                self.all_ads[ad_id]["keywords"].append(simple_search_terms)
+                keywords = self.all_ads[ad_id].get("keywords", [])
+                if simple_search_terms not in keywords:
+                    self.all_ads[ad_id]["keywords"].append(simple_search_terms)
+                self.all_ads[ad_id].update(ad)
         if "paging" in data and self.limit >= 5000:
             next_url = data["paging"].get("next")
             if next_url:
@@ -120,11 +131,13 @@ class LoadMetaAds:
         current_block = ""
         for ad_id, ad_data in self.all_ads.items():
             text = "\n".join(ad_data.get("ad_creative_bodies", []))
+            category = ad_data.get("category")
+            is_new = category == "new"
             if text in self.unique_ads:
                 self.all_ads[ad_id]["category"] = "duplicate"
                 continue
             self.unique_ads.add(text)
-            if ad_data.get("category"):
+            if category and not is_new:
                 continue
             if not text:
                 self.all_ads[ad_id]["category"] = "unknown"
@@ -213,6 +226,18 @@ class LoadMetaAds:
             self.all_ads[ad_id]["state"] = loc_data["state"]
             self.all_ads[ad_id]["location_details"] = loc_data["details"]
 
+    def set_states(self):
+        from geo.models import State
+        states_dict = {state.inegi_code: state.short_name
+                       for state in State.objects.all()}
+        for ad_id, ad_data in self.all_ads.items():
+            state = ad_data.get("state")
+            if not state:
+                continue
+            if state in states_dict:
+                self.all_ads[ad_id]["state"] = states_dict[state]
+            else:
+                print(f"State not found: {state}")
 
     def load_positions_cats(self):
         from oej.models import Position
@@ -257,6 +282,30 @@ class LoadMetaAds:
             self.all_ads[ad_id]["real_position"] = pos_data["position"]
             self.all_ads[ad_id]["specialty"] = pos_data["specialty"]
 
+    def set_direct_positions(self):
+        positions_dict = {
+            "0": "No especificado",
+            "1": "Ministras y ministros de la SCJN",
+            "2": "Magistraturas del Tribunal de Disciplina Judicial (TDJ)",
+            "3": "Magistraturas de la Sala Superior del TEPJF",
+            "4": "Magistraturas de las Salas Regionales del TEPJF",
+            "5": "Magistraturas de Circuito",
+            "6": "Juezas y jueces de Distrito",
+            "20": "Otros del Poder judicial",
+            "99": "Otras posiciones (no judiciales)",
+        }
+        for ad_id, ad_data in self.all_ads.items():
+            position = ad_data.get("real_position")
+            if not position:
+                continue
+            position = str(position)
+            pos_data = positions_dict.get(position)
+            if not pos_data:
+                print(f"Position not found: {position}")
+                continue
+            self.all_ads[ad_id]["real_position"] = pos_data
+
+
     def load_saved_ads(self):
         try:
             with open(self.base_path, "r", encoding="utf-8") as file:
@@ -274,10 +323,3 @@ class LoadMetaAds:
         list_path = self.base_path.replace(".json", "_list.json")
         with open(list_path, "w", encoding="utf-8") as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
-
-
-
-
-
-
-

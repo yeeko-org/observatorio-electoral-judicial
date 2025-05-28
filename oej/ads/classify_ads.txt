@@ -13,10 +13,54 @@ unknown: La información proporcionada no es suficiente para clasificar el anunc
 También determina si se está haciendo alguna especie de promoción del voto por algún candidato o grupo de candidato con el atributo "vote_promotion".
 
 En caso de que exista mención de uno o varios candidatos, incluye el atributo "candidates" con una lista de los nombres de los candidatos mencionados (separados por first_name (nombre o nombres), last_name1 (apellido paterno) y last_name2 (apellido materno).
-También incluye si se mencionan:
-position: el cargo por el que compite
+También incluye si se mencionan, clasifica los siguientes atributos:
+position: el cargo por el que compite.
+real_position: Clasificación según catálogo de la posición (si se menciona), según la siguiente lista:
+0 No especificado
+1 Ministras y ministros de la SCJN (Suprema Corte de Justicia de la Nación)
+2 Magistraturas del Tribunal de Disciplina Judicial (TDJ)
+3 Magistraturas de la Sala Superior del TEPJF (Tribunal Electoral del Poder Judicial de la Federación)
+4 Magistraturas de las Salas Regionales del TEPJF (Tribunal Electoral del Poder Judicial de la Federación)
+5 Magistraturas de Circuito
+6 Juezas y jueces de Distrito
+10 Otras posiciones del poder judicial
+20 Varias posiciones simultáneamente
+99 Otras posiciones (no judiciales)
+specialty: si se menciona alguna especialidad o área de trabajo (solo para juezas, jueces y algunos magistrados)
 location: si se menciona algún estado o ubicación
-
+state: Estado de México (solo para anuncios de candidatos y si se menciona en el anuncio), según la siguiente lista:
+01,Aguascalientes
+02,Baja California
+03,Baja California Sur
+04,Campeche
+05,Coahuila de Zaragoza
+06,Colima
+07,Chiapas
+08,Chihuahua
+09,Ciudad de México
+10,Durango
+11,Guanajuato
+12,Guerrero
+13,Hidalgo
+14,Jalisco
+15,Estado de México
+16,Michoacán de Ocampo
+17,Morelos
+18,Nayarit
+19,Nuevo León
+20,Oaxaca
+21,Puebla
+22,Querétaro de Arteaga
+23,Quintana Roo
+24,San Luis Potosí
+25,Sinaloa
+26,Sonora
+27,Tabasco
+28,Tamaulipas
+29,Tlaxcala
+30,Veracruz
+31,Yucatán
+32,Zacatecas
 Regrésame un diccionario en JSON con el id como "key" y toda la data y atributos que correspondan
 
 
@@ -99,7 +143,10 @@ ID: 1396073068479479
          }
       ],
       "position": "Magistrado de Circuito en Materia Administrativa",
-      "location": "Cuajimalpa, Álvaro Obregón y Magdalena Contreras"
+      "real_position": 5,
+      "specialty": "Administrativa",
+      "location": "Cuajimalpa, Álvaro Obregón y Magdalena Contreras",
+      "state": 9
    },
    "1427504778619095":{
       "category": "other_topic",
