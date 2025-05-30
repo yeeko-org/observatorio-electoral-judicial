@@ -45,7 +45,24 @@ class LoadMetaAds:
         self.limit = limit
         self.last_response = None
         self.locations_dict = {}
+        self.full_positions_dict = {}
+        positions_dict = {
+            "0": "No especificado",
+            "1": "Ministras y Ministros de la SCJN",
+            "2": "Magistraturas del Tribunal de Disciplina Judicial (TDJ)",
+            "3": "Magistraturas de la Sala Superior del TEPJF",
+            "4": "Magistraturas de las Salas Regionales del TEPJF",
+            "5": "Magistraturas de Circuito",
+            "6": "Juezas y jueces de Distrito",
+            "10": "Otros del Poder judicial",
+            "20": "Otros del Poder judicial",
+            "99": "Otras posiciones (no judiciales)",
+        }
         self.positions_dict = {}
+        for position_id, position_name in positions_dict.items():
+            self.positions_dict[position_id] = position_name
+            position_int = int(position_id)
+            self.positions_dict[str(position_int)] = position_name
         fields = fields or self.fields
         if include_extra_fields:
             fields += self.extra_fields
@@ -63,11 +80,14 @@ class LoadMetaAds:
     def start_get_ads(self, keywords1=None, keywords2=None):
         if not keywords1:
             keywords1 = [
-                "candidato", "candidata", "candidatos", "candidatas", "eleccion"]
+                "candidato", "candidata", "candidatos", "candidatura",
+                "candidatas",
+                "eleccion", "elecciones", "encuesta", "sondeo", "electoral"]
         if not keywords2:
             keywords2 = [
                 "judicial", "juez", "jueces", "jueza",
                 "magistrado", "magistrada", "magistrados",
+                "magistratura", "magistraturas",
                 "ministro", "ministra", "ministros", "ministras",
                 "tribunal", "scjn", "suprema"]
         self.build_keywords(keywords1, keywords2)
@@ -85,9 +105,9 @@ class LoadMetaAds:
             keyword = keyword.strip()
             keyword = keyword.lower()
             keyword = keyword.replace(" ", "%20")
-            self.get_ads(keyword)
+            self.get_ads(keyword, exact_phrase=True)
 
-    def get_ads(self, keyword1, keyword2=None):
+    def get_ads(self, keyword1, keyword2=None, exact_phrase=False):
         # post_message_url = ('https://graph.facebook.com/%s/me/messenger_profile?'
         #                     'access_token=%s' % (settings.V_API_FB, token))
         search_terms = f"&search_terms={keyword1}"
@@ -95,6 +115,8 @@ class LoadMetaAds:
             search_terms += f"%20{keyword2}"
         search_terms = search_terms.replace(" ", "%20")
         request_url = f"{self.common_url}{search_terms}"
+        if exact_phrase:
+            request_url += "&search_type=KEYWORD_EXACT_PHRASE"
         print(f"request_url: {request_url}")
         self.get_response(request_url, search_terms)
 
@@ -239,19 +261,25 @@ class LoadMetaAds:
             else:
                 print(f"State not found: {state}")
 
+    def post_clean_states(self):
+        from geo.models import State
+        states_dict = {state.id: state.short_name
+                       for state in State.objects.all()}
+        for ad_id, ad_data in self.all_ads.items():
+            state = ad_data.get("state")
+            if not state:
+                continue
+            try:
+                state_int = int(state)
+                state = states_dict.get(state_int)
+                if state:
+                    self.all_ads[ad_id]["state"] = state
+            except ValueError:
+                continue
+
     def load_positions_cats(self):
         from oej.models import Position
-        positions_dict = {
-            "0": "No especificado",
-            "1": "Ministras y ministros de la SCJN",
-            "2": "Magistraturas del Tribunal de Disciplina Judicial (TDJ)",
-            "3": "Magistraturas de la Sala Superior del TEPJF",
-            "4": "Magistraturas de las Salas Regionales del TEPJF",
-            "5": "Magistraturas de Circuito",
-            "6": "Juezas y jueces de Distrito",
-            "20": "Otros del Poder judicial",
-            "99": "Otras posiciones (no judiciales)",
-        }
+
         with open("fixture/ads/text_positions.txt", "r", encoding="utf-8") as file:
             positions = file.read().splitlines()
         #Magistrada en Materia Penal del Tribunal Superior de Justicia del Estado|2|Penal
@@ -260,12 +288,12 @@ class LoadMetaAds:
         for position_data in positions:
             text, position_id, specialty = position_data.split("|")
             position_id = str(position_id)
-            position = positions_dict.get(position_id)
+            position = self.positions_dict.get(position_id)
             if not position:
                 print(f"Position not found: {position_id}")
                 print(f"position_data: {position_data}")
                 continue
-            self.positions_dict[text] = {
+            self.full_positions_dict[text] = {
                 "position": position,
                 "specialty": specialty
             }
@@ -275,7 +303,7 @@ class LoadMetaAds:
             position = ad_data.get("position")
             if not position:
                 continue
-            pos_data = self.positions_dict.get(position)
+            pos_data = self.full_positions_dict.get(position)
             if not pos_data:
                 print(f"Position not found: {position}")
                 continue
@@ -283,28 +311,25 @@ class LoadMetaAds:
             self.all_ads[ad_id]["specialty"] = pos_data["specialty"]
 
     def set_direct_positions(self):
-        positions_dict = {
-            "0": "No especificado",
-            "1": "Ministras y ministros de la SCJN",
-            "2": "Magistraturas del Tribunal de Disciplina Judicial (TDJ)",
-            "3": "Magistraturas de la Sala Superior del TEPJF",
-            "4": "Magistraturas de las Salas Regionales del TEPJF",
-            "5": "Magistraturas de Circuito",
-            "6": "Juezas y jueces de Distrito",
-            "20": "Otros del Poder judicial",
-            "99": "Otras posiciones (no judiciales)",
-        }
+
         for ad_id, ad_data in self.all_ads.items():
             position = ad_data.get("real_position")
             if not position:
                 continue
             position = str(position)
-            pos_data = positions_dict.get(position)
+            pos_data = self.positions_dict.get(position)
             if not pos_data:
                 print(f"Position not found: {position}")
                 continue
             self.all_ads[ad_id]["real_position"] = pos_data
 
+    def post_clean_positions(self):
+        for ad_id, ad_data in self.all_ads.items():
+            real_position = ad_data.get("real_position")
+            if isinstance(real_position, int):
+                position = self.positions_dict.get(str(real_position))
+                if position:
+                    self.all_ads[ad_id]["real_position"] = position
 
     def load_saved_ads(self):
         try:
@@ -323,3 +348,47 @@ class LoadMetaAds:
         list_path = self.base_path.replace(".json", "_list.json")
         with open(list_path, "w", encoding="utf-8") as file:
             json.dump(data, file, ensure_ascii=False, indent=4)
+
+    def special_clean_48(self, bad_finds=None, delete_empty=True):
+        if not bad_finds:
+            bad_finds = ["el%20candidato 48", "candidato 48"]
+        ads_to_remove = []
+        for ad_id, ad_data in self.all_ads.items():
+            keywords = ad_data.get("keywords", [])
+            modified = False
+            for bad_find in bad_finds:
+                real_bad_find = bad_find.strip().lower()
+                real_bad_find = real_bad_find.replace(" ", "%20")
+                if real_bad_find in keywords:
+                    keywords.remove(real_bad_find)
+                    modified = True
+            if not keywords:
+                ads_to_remove.append(ad_id)
+            elif modified:
+                self.all_ads[ad_id]["keywords"] = keywords
+
+        self.delete_empty_keywords(ads_to_remove, delete_empty)
+
+    def delete_empty_keywords(
+            self, ads_to_remove=None, delete_empty=True, lookup_candidates=False):
+        if not ads_to_remove:
+            ads_to_remove = []
+            for ad_id, ad_data in self.all_ads.items():
+                keywords = ad_data.get("keywords", [])
+                if not keywords:
+                    candidates = ad_data.get("candidates", [])
+                    if lookup_candidates:
+                        if not candidates:
+                            ads_to_remove.append(ad_id)
+                    else:
+                        ads_to_remove.append(ad_id)
+
+        if delete_empty:
+            for ad_id in ads_to_remove:
+                if ad_id in self.all_ads:
+                    print(f"Removing ad {ad_id} with no keywords")
+                    del self.all_ads[ad_id]
+        else:
+            print(f"Ads with no keywords: {len(ads_to_remove)}")
+            for ad_id in ads_to_remove:
+                print(f"Ad {ad_id} has no keywords")

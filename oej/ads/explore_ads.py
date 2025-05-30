@@ -80,3 +80,14 @@ for page_name, count in page_names.most_common(100):  # Top 10 page names
     if page_name:  # Only show non-empty page names
         print(f"  {page_name}: {count}")
 
+# 6. Count KEYWwORDS
+keywords = Counter()
+for item in data:
+    item_keywords = item.get('keywords', [])
+    for keyword in item_keywords:
+        keywords[keyword] += 1
+# Print the top 10 keywords
+print("\nTop 10 keywords:")
+for keyword, count in keywords.most_common(10):
+    print(f"  {keyword}: {count} ({count / total_entries * 100:.1f}%)")
+
