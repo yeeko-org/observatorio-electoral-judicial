@@ -37,7 +37,6 @@ class LoadSections:
         print("Preparing sections")
         sections = self.section_data.get("secciones", [])
         for section in sections:
-            pass
             try:
                 section = Section(
 

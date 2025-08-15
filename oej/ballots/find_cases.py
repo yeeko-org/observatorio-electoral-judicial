@@ -42,7 +42,6 @@ class ResearchCases(LoadCandidates):
     ]
 
     def __init__(self):
-        from oej.ballots.simulator import ElectionSimulator
         super().__init__()
         self.base_path = "fixture/all_distritos.json"
         self.data = {}
@@ -419,6 +418,69 @@ class ResearchCases(LoadCandidates):
                 seat.probability_mujeres * seat.real_mujeres / 100)
             seat.save()
 
+    def calc_real_votes(self):
+        import math
+        self.simulator.set_real()
+        Candidate.objects.all().update(
+            real_winner=None,
+            real_winner_final=None, real_winner_circuit=None,
+        )
+        districts = JudicialElectoralDistrict.objects.all()\
+            .prefetch_related("seats")
+        for jed in districts:
+            for position in self.positions:
+                pos = position["pos"]
+                counts = jed.aggregations(pos)
+                offices_mujeres = counts["offices_mujeres"]
+                min_offices_women = math.floor(counts["total_offices"] / 2)
+                self.simulator.calculate_pos_district(
+                    pos, min_offices_women, jed, offices_mujeres
+                )
+
+    def calc_real_dis_votes(self):
+        import math
+        from django.db.models import Sum
+        from geo.models import State, Topic
+        states = State.objects.all()
+        target_states = []
+
+        for state in states:
+            circuit = state.circuit
+            judicial_districts = state.judicial_electoral_districts.all()
+            if judicial_districts.count() < 2:
+                continue
+            for position in self.positions:
+                pos = position["pos"]
+                seats = Seat.objects.filter(
+                    position=pos, judicial_district__circuit=circuit)
+                all_topics = Seat.objects.filter(
+                    position=pos, judicial_district__circuit=circuit)\
+                    .values_list("topic_id", flat=True).distinct()
+                unique_topics = set(all_topics)
+                for topic in unique_topics:
+                    topic_obj = Topic.objects.get(id=topic)
+                    topic_seats = seats.filter(topic=topic_obj)
+                    max_shared_men = topic_seats\
+                        .filter(shared_offices=1, real_hombres__gte=1)
+                    fields = [
+                        'total_offices', 'offices_hombres', 'offices_mujeres']
+
+                    query = { aggr: Sum(aggr) for aggr in fields }
+                    counts = topic_seats.aggregate(**query)
+                    offices_hombres = counts["offices_hombres"]
+                    max_offices_men = math.ceil(counts["total_offices"] / 2)
+                    min_offices_women = math.floor(counts["total_offices"] / 2)
+                    max_simple_men = offices_hombres + max_shared_men.count()
+                    # if max_simple_men > max_offices_men:
+                    target_states.append((state, pos, topic_obj, min_offices_women))
+        print(f"Target districts: {len(target_states)}")
+
+        for (state, pos, topic_obj, min_offices_women) in target_states:
+            print(f"\n{pos.short_name} - {state.short_name} - "
+                  f"{topic_obj.name}")
+            self.simulator.calculate_topic_circuit(
+                pos, min_offices_women, state, topic_obj)
+
     def post_gender_equity(self, jed_id=None):
         import math
         target_districts = []
@@ -519,9 +581,6 @@ class ResearchCases(LoadCandidates):
         for (state, pos, topic_obj, min_offices_women) in target_states:
             print(f"\n{pos.short_name} - {state.short_name} - "
                   f"{topic_obj.name}")
-            seats = Seat.objects.filter(
-                position=pos, judicial_district__circuit=state.circuit,
-                topic=topic_obj)
             self.simulator.calculate_topic_circuit(
                 pos, min_offices_women, state, topic_obj)
 

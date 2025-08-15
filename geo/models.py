@@ -153,6 +153,9 @@ class Section(models.Model):
         related_name='sections')
     federal_district = models.IntegerField(
         verbose_name="Distrito electoral", blank=True, null=True)
+    state = models.ForeignKey(
+        State, on_delete=models.CASCADE, related_name='polling_places',
+        verbose_name="Estado")
 
     def __str__(self):
         return f'{self.judicial_electoral_district} - {self.number}'
@@ -160,6 +163,27 @@ class Section(models.Model):
     class Meta:
         verbose_name = 'Sección'
         verbose_name_plural = 'Secciones'
+
+
+class PollingPlace(models.Model):
+    key = models.CharField(
+        max_length=20, unique=True, verbose_name="Clave de Casilla")
+    section = models.ForeignKey(
+        Section, on_delete=models.CASCADE, related_name='polling_places',
+        verbose_name="Sección")
+    polling_place_type = models.CharField(
+        max_length=1, verbose_name="Tipo de Casilla",
+        help_text="B (Básica), E (Especial), C (Contigua)")
+    polling_place_number = models.IntegerField(verbose_name="ID de Casilla")
+    nominal_list = models.IntegerField(
+        default=0, verbose_name='Número de personas en la lista nominal')
+
+    def __str__(self):
+        return f'{self.key} - {self.section}'
+
+    class Meta:
+        verbose_name = 'Casilla'
+        verbose_name_plural = 'Casillas'
 
 
 class Topic(models.Model):

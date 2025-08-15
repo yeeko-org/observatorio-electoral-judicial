@@ -1,0 +1,152 @@
+{
+        "Version": "2008-10-17",
+        "Id": "PolicyForCloudFrontPrivateContent",
+        "Statement": [
+            {
+                "Sid": "AllowCloudFrontServicePrincipal",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "cloudfront.amazonaws.com"
+                },
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::cdn-yeeko/*",
+                "Condition": {
+                    "StringEquals": {
+                      "AWS:SourceArn": "arn:aws:cloudfront::032892915740:distribution/E2VWU1BWYAN6PO"
+                    }
+                }
+            }
+        ]
+      }
+
+
+ffmpeg -i Lucero_COMPLETA.mp4 \
+  -codec: copy \
+  -start_number 0 \
+  -hls_time 10 \
+  -hls_list_size 0 \
+  -f hls \
+  playlist_irma.m3u8
+
+
+
+# Usando FFmpeg para generar HLS
+ffmpeg -i Lucero_COMPLETA.mp4 \
+  -filter_complex \
+  "[0:v]split=3[v1][v2][v3]; \
+   [v1]copy[v1out]; [v2]scale=w=1280:h=720[v2out]; [v3]scale=w=854:h=480[v3out]" \
+  -map "[v1out]" -c:v:0 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" -b:v:0 5M -maxrate:v:0 5M -minrate:v:0 5M -bufsize:v:0 10M -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+  -map "[v2out]" -c:v:1 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" -b:v:1 3M -maxrate:v:1 3M -minrate:v:1 3M -bufsize:v:1 6M -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+  -map "[v3out]" -c:v:2 libx264 -x264-params "nal-hrd=cbr:force-cfr=1" -b:v:2 1M -maxrate:v:2 1M -minrate:v:2 1M -bufsize:v:2 2M -preset slow -g 48 -sc_threshold 0 -keyint_min 48 \
+  -map a:0 -c:a:0 aac -b:a:0 96k -ac 2 \
+  -f hls -hls_time 2 -hls_playlist_type vod -hls_flags independent_segments -hls_segment_type mpegts \
+  -master_pl_name playlist_lucero.m3u8 \
+  -var_stream_map "v:0,a:0 v:1,a:0 v:2,a:0" stream_%v.m3u8
+
+
+
+  ffmpeg -i Lucero_COMPLETA.mp4 \
+  -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+  -c:v libx264 -crf 22 -c:a aac -ar 44100 \
+  -filter:v:0 scale=w=480:h=360  -maxrate:v:0 600k -b:a:0 500k \
+  -filter:v:1 scale=w=640:h=480  -maxrate:v:1 1500k -b:a:1 1000k \
+  -filter:v:2 scale=w=1280:h=720 -maxrate:v:2 3000k -b:a:2 2000k \
+  -filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:a:3 4100k \
+  -var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+  -preset fast -hls_list_size 10 -threads 0 -f hls \
+  -hls_time 3 -hls_flags independent_segments \
+  -master_pl_name playlist_lucero.m3u8 \
+  -y "playlist_lucero-%v.m3u8"
+
+
+
+ffmpeg -i Lucero_COMPLETA.mp4 \
+-map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+-c:v libx264 -crf 22 -c:a aac -ar 48000 \
+-filter:v:0 scale=w=640:h=360   -maxrate:v:0 800k  -b:v:0 600k  -b:a:0 96k \
+-filter:v:1 scale=w=854:h=480   -maxrate:v:1 1400k -b:v:1 1000k -b:a:1 128k \
+-filter:v:2 scale=w=1280:h=720  -maxrate:v:2 2800k -b:v:2 2500k -b:a:2 192k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:v:3 4500k -b:a:3 256k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-preset slow -hls_list_size 0 -threads 0 -f hls \
+-hls_time 4 -hls_playlist_type vod -hls_flags independent_segments \
+-master_pl_name playlist_lucero.m3u8 \
+-y "playlist_lucero-%v.m3u8"
+
+
+
+ffmpeg -i Arturo_COMPLETA.mp4 \
+-map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+-c:v libx264 -crf 22 -c:a aac -ar 48000 \
+-filter:v:0 scale=w=640:h=360   -maxrate:v:0 800k  -b:v:0 600k  -b:a:0 96k \
+-filter:v:1 scale=w=854:h=480   -maxrate:v:1 1400k -b:v:1 1000k -b:a:1 128k \
+-filter:v:2 scale=w=1280:h=720  -maxrate:v:2 2800k -b:v:2 2500k -b:a:2 192k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:v:3 4500k -b:a:3 256k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-preset slow -hls_list_size 0 -threads 0 -f hls \
+-hls_time 4 -hls_playlist_type vod -hls_flags independent_segments \
+-master_pl_name playlist_arturo.m3u8 \
+-y "playlist_arturo-%v.m3u8"
+
+
+
+ffmpeg -i Lucero_COMPLETA.mp4 \
+-map 0:v:0 -map 0:v:0 -map 0:v:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 \
+-c:v libx264 -preset fast -crf 22 \
+-c:a aac -ar 48000 \
+-filter:v:0 scale=w=480:h=360 -maxrate:v:1 600k -bufsize:v:1 500k \
+-filter:v:1 scale=w=640:h=480  -maxrate:v:1 1500k -b:a:1 1000k \
+-filter:v:2 scale=w=1280:h=720 -maxrate:v:2 3000k -b:a:2 2000k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:a:3 4200k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-hls_time 3 -hls_list_size 0 -hls_flags independent_segments \
+-master_pl_name playlist_lucero.m3u8 \
+-y "playlist_lucero-%v.m3u8"
+
+
+
+
+ffmpeg -i Luis_COMPLETA.mp4 \
+-map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+-c:v libx264 -crf 22 -c:a aac -ar 48000 \
+-filter:v:0 scale=w=640:h=360   -maxrate:v:0 800k  -b:v:0 600k  -b:a:0 96k \
+-filter:v:1 scale=w=854:h=480   -maxrate:v:1 1400k -b:v:1 1000k -b:a:1 128k \
+-filter:v:2 scale=w=1280:h=720  -maxrate:v:2 2800k -b:v:2 2500k -b:a:2 192k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:v:3 4500k -b:a:3 256k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-preset slow -hls_list_size 0 -threads 0 -f hls \
+-hls_time 4 -hls_playlist_type vod -hls_flags independent_segments \
+-master_pl_name playlist_luis.m3u8 \
+-y "playlist_luis-%v.m3u8"
+
+
+
+ffmpeg -i Tania_COMPLETA.mp4 \
+-map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+-c:v libx264 -crf 22 -c:a aac -ar 48000 \
+-filter:v:0 scale=w=640:h=360   -maxrate:v:0 800k  -b:v:0 600k  -b:a:0 96k \
+-filter:v:1 scale=w=854:h=480   -maxrate:v:1 1400k -b:v:1 1000k -b:a:1 128k \
+-filter:v:2 scale=w=1280:h=720  -maxrate:v:2 2800k -b:v:2 2500k -b:a:2 192k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:v:3 4500k -b:a:3 256k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-preset slow -hls_list_size 0 -threads 0 -f hls \
+-hls_time 4 -hls_playlist_type vod -hls_flags independent_segments \
+-master_pl_name playlist_tania.m3u8 \
+-y "playlist_tania-%v.m3u8"
+
+
+
+
+ffmpeg -i Susana_COMPLETA.mp4 \
+-map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 -map 0:v:0 -map 0:a:0 \
+-c:v libx264 -crf 22 -c:a aac -ar 48000 \
+-filter:v:0 scale=w=640:h=360   -maxrate:v:0 800k  -b:v:0 600k  -b:a:0 96k \
+-filter:v:1 scale=w=854:h=480   -maxrate:v:1 1400k -b:v:1 1000k -b:a:1 128k \
+-filter:v:2 scale=w=1280:h=720  -maxrate:v:2 2800k -b:v:2 2500k -b:a:2 192k \
+-filter:v:3 scale=w=1920:h=1080 -maxrate:v:3 5000k -b:v:3 4500k -b:a:3 256k \
+-var_stream_map "v:0,a:0,name:360p v:1,a:1,name:480p v:2,a:2,name:720p v:3,a:3,name:1080p" \
+-preset slow -hls_list_size 0 -threads 0 -f hls \
+-hls_time 4 -hls_playlist_type vod -hls_flags independent_segments \
+-master_pl_name playlist_susy.m3u8 \
+-y "playlist_susy-%v.m3u8"
+

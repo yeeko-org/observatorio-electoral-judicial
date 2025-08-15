@@ -2,7 +2,8 @@ import pandas as pd
 import json
 import roman
 import os
-from oej.ads.names import nicknames, ready_cats
+from oej.ads.names import (
+    nicknames, ready_cats, add_names, final_categories, real_urls, local_names)
 from oej.models import Candidate
 
 
@@ -51,12 +52,14 @@ class ExportAds:
             ('specialty', 'specialities'),
         ]
         self.names_dict = {}
+        self.indirect_names_dict = {}
         self.national_candidates = {}
         self.other_candidates = {}
         self.skip_candidates = set()
-        self.ready_cats = {}
+        # self.names_dict = {}
         self.build_real_candidates_dict()
         self.build_ready_candidates_dict()
+        self.standarize_names()
 
     def run(
             self,
@@ -64,13 +67,13 @@ class ExportAds:
             output_dir='fixture/ads',
     ):
 
-        self.standarize_names()
-        self.build_candidates_dict()
+        # self.build_candidates_dict()
         df1, df2 = self.process_ads_data(json_file_path)
         df3 = self.build_candidates_dataframe()
+        df4 = self.build_final_table()
 
         # Export to Excel
-        self.export_to_excel(df1, df2, df3, output_dir)
+        self.export_to_excel(df1, df2, df3, df4, output_dir)
 
     def add_candidate(
             self,
@@ -84,16 +87,16 @@ class ExportAds:
             "ine_id": None,
             "candidate": full_name,
             "level": "unknown",
-            "positions": "No identificado",
+            "real_position": "No identificado",
             "circuit": "",
-            "states": "",
-            "locations": "",
-            "specialties": "",
+            "state": "",
+            "location_details": "",
+            "specialty": "",
         }
         if not candidate_obj and candidate_id:
             # candidate_id = int(candidate_id)
             if full_name:
-                candidate_data = self.ready_cats.get(candidate_id)
+                candidate_data = self.names_dict.get(candidate_id)
                 if candidate_data:
                     return self.simple_add_candidate(full_name, candidate_data)
             candidate_obj = Candidate.objects.filter(id=candidate_id).first()
@@ -101,37 +104,44 @@ class ExportAds:
             candidate_id = candidate_obj.id
             if not full_name:
                 full_name = candidate_obj.full_name_normalized
-            state = candidate_obj.seat.judicial_district.state.short_name
-            circuit = candidate_obj.seat.judicial_district.circuit
+            state = ""
+            roman_circuit = ""
+            topic = ""
+            circunscription = ""
+            position = candidate_obj.seat.position
+            if position.by_circuit:
+                state = candidate_obj.seat.judicial_district.state.short_name
+                circuit = candidate_obj.seat.judicial_district.circuit
+                roman_circuit = roman.toRoman(circuit)
+                topic = candidate_obj.seat.topic.name
+            if position.by_circunscription:
+                circunscription = candidate_obj.seat.circunscription.number
             candidate_data = {
                 "oej_id": candidate_obj.id,
                 "ine_id": candidate_obj.id_ine,
                 "candidate": candidate_obj.full_name,
                 "level": "federal",
-                "positions": candidate_obj.seat.position.full_name,
-                "circuit": roman.toRoman(circuit),
+                "real_position": candidate_obj.seat.position.full_name,
+                "circuit": roman_circuit,
+                "circunscription": circunscription,
                 "state": state,
-                "locations": "",
-                "specialties": candidate_obj.seat.topic.name,
+                "location_details": "",
+                "specialty": topic,
             }
         elif is_local:
-            candidate_data["candidate"] = full_name
+            if full_name in local_names:
+                candidate_data["candidate"] = local_names[full_name]
             candidate_data["level"] = "local"
-            candidate_data["positions"] = "Locales del Poder Judicial"
+            candidate_data["real_position"] = "Locales del Poder Judicial"
         else:
             # raise ValueError("Either full_name or candidate_id must be provided.")
             pass
         self.simple_add_candidate(full_name, candidate_data)
         return self.simple_add_candidate(candidate_id, candidate_data)
-        # if candidate_id:
-        #     self.ready_cats[candidate_id] = candidate
-        #     # self.ready_cats[str(candidate_id)] = candidate
-        # self.ready_cats[full_name] = candidate
-        # return candidate
 
     def simple_add_candidate(self, key, candidate_data):
         if key:
-            self.ready_cats[key] = candidate_data
+            self.names_dict[key] = candidate_data
         return candidate_data
 
     def build_real_candidates_dict(self):
@@ -190,7 +200,6 @@ class ExportAds:
                 full_name=short_name, candidate_id=oej_id)
             if to_normalize:
                 short_name_std = self.text_special_normalizer(short_name)
-                # self.names_dict[short_name_std] = oej_id
                 self.add_candidate(
                     full_name=short_name_std, candidate_id=oej_id)
             else:
@@ -217,8 +226,8 @@ class ExportAds:
 
             full_name = name_data.get('full_name')
             std_name = self.text_special_normalizer(full_name)
-            # self.names_dict[std_name] = oej_id
             self.add_candidate(full_name=std_name, candidate_id=oej_id)
+            self.add_candidate(full_name=full_name, candidate_id=oej_id)
             exclude_full_name, names_search = self.add_from_list(
                 name_data, 'short_names', std_name)
             if not exclude_full_name:
@@ -229,7 +238,6 @@ class ExportAds:
             accent_names_search = set()
             if full_name_accent:
                 full_name_accent = full_name_accent.strip()
-                # self.names_dict[full_name_accent] = oej_id
                 self.add_candidate(
                     full_name=full_name_accent, candidate_id=oej_id)
                 exclude_accent_name, accent_names_search = self.add_from_list(
@@ -243,48 +251,33 @@ class ExportAds:
             all_search = names_search.union(accent_names_search, nickname_search)
             for search_name in all_search:
                 self.names_search.add(search_name)
-                # self.names_dict[search_name] = oej_id
                 self.add_candidate(
                     full_name=search_name, candidate_id=oej_id)
 
         # Save the dictionary to a JSON file
-
-    def build_candidates_dict(self):
-        pass
-
-    def find_name_old(self, name, forced=True):
-        """
-        Find the standardized name in the dictionary.
-        """
-        std_name = self.text_special_normalizer(name, delete_spaces=True)
-        if std_name in self.names_dict:
-            return self.names_dict[std_name]
-        elif name in self.names_dict:
-            return self.names_dict[name]
-        elif forced:
-            return self.text_special_normalizer(name, delete_spaces=False)
-        else:
-            return None
 
     def find_name(self, name, forced=True):
         """
         Find the standardized name in the dictionary.
         """
         std_name = self.text_special_normalizer(name, delete_spaces=True)
-        if candidate_data := self.ready_cats.get(std_name):
+        if candidate_data := self.names_dict.get(std_name):
             return candidate_data
-        elif candidate_data := self.ready_cats.get(name):
+        elif candidate_data := self.names_dict.get(name):
             return candidate_data
         elif name in self.skip_candidates:
             return None
         elif forced:
             std_name = self.text_special_normalizer(
                 name, delete_spaces=False)
-            if candidate_data := self.ready_cats.get(std_name):
+            if candidate_data := self.names_dict.get(std_name):
                 return candidate_data
             return self.add_candidate(full_name=std_name)
         else:
             return None
+
+    def find_id_by_name(self, name):
+        pass
 
     def to_date(self, date_str):
         from datetime import datetime
@@ -323,6 +316,19 @@ class ExportAds:
         # Create a base record with all fields
         record = {}
 
+        ad_id = ad.get('id', '')
+        # Expand nested dictionaries to direct columns
+        for nested_field in self.nested_fields:
+            if nested_field in ad and isinstance(ad[nested_field], dict):
+                # lower = nested_field.lower()
+                for sub_key, sub_value in ad[nested_field].items():
+                    record[f"{nested_field}_{sub_key}"] = sub_value
+                if not record.get(f"{nested_field}_upper_bound"):
+                    lower_bound = ad[nested_field].get('lower_bound', 0)
+                    lower_bound = int(lower_bound)
+                    if lower_bound > 1000000:
+                        record[f"{nested_field}_upper_bound"] = 2000000
+
         # Process standard fields first
         for key, value in ad.items():
             if key in self.integer_fields:
@@ -348,18 +354,18 @@ class ExportAds:
             else:
                 record[field] = ''
 
+        if new_category := final_categories.get(ad_id):
+            record['category'] = new_category
+        # if new_url := real_urls.get(ad_id):
+        base_url = "https://www.facebook.com/ads/library/?ad_type=all&q="
+        record['ad_snapshot_url'] = f"{base_url}{ad_id}"
+
         # Process keywords: replace %20 with space and join with line breaks
         if 'keywords' in ad and ad['keywords']:
             record['keywords'] = '\n'.join(
                 [str(k).replace('%20', ' ') for k in ad['keywords']])
         else:
             record['keywords'] = ''
-
-        # Expand nested dictionaries to direct columns
-        for nested_field in self.nested_fields:
-            if nested_field in ad and isinstance(ad[nested_field], dict):
-                for sub_key, sub_value in ad[nested_field].items():
-                    record[f"{nested_field}_{sub_key}"] = sub_value
 
         # Create platform columns with 0/1 values
         ad_platforms = ad.get('publisher_platforms', [])
@@ -371,10 +377,15 @@ class ExportAds:
 
         # Process candidates and build full names
         candidates = ad.get('candidates', [])
-        # candidates_data = []
+
         unique_candidates = set()
         if candidates is None:
             candidates = []
+        if names_str := add_names.get(ad_id):
+            names = names_str.split(',')
+            names = [name.strip() for name in names if name.strip()]
+            for name in names:
+                candidates.append({'first_name': name})
 
         str_keywords = record.get('keywords', '')
         keywords = str_keywords.split('\n') if str_keywords else []
@@ -428,51 +439,12 @@ class ExportAds:
         # For File 1: Add all candidates in one column with line breaks
         # str_candidates = [str(name) for name in unique_candidates if name]
         str_candidates = []
-        for cand_key in unique_candidates:
-            if isinstance(cand_key, int):
-                cand_data = self.ready_cats.get(cand_key)
-                if cand_data:
-                    str_candidates.append(cand_data['candidate'])
-                    continue
-            cand_data = self.find_name(cand_key, forced=False)
-            if cand_data:
-                str_candidates.append(cand_data['candidate'])
-            else:
-                str_candidates.append(str(cand_key))
-
-        # For File 2: Create one record per candidate
-        if unique_candidates:
-            for candidate_name in unique_candidates:
-                candidate_record = record.copy()
-                if isinstance(candidate_name, int):
-                    # TODO Right now
-                    candidate_name = self.national_candidates.get(
-                        candidate_name, candidate_name)
-                else:
-                    # TODO Right now
-                    if candidate_name not in self.national_candidates:
-                        default_dict = {}
-                        for _, plural_field in self.concat_fields:
-                            default_dict[plural_field] = set()
-                        self.other_candidates.setdefault(
-                            candidate_name, default_dict)
-                    for field, plural in self.concat_fields:
-                        if field in candidate_record:
-                            self.other_candidates[candidate_name][plural].add(
-                                candidate_record[field])
-                candidate_name = candidate_name.strip()
-                candidate_record['candidate'] = candidate_name
-                # Remove the combined candidates field
-                if 'candidates_full_names' in candidate_record:
-                    del candidate_record['candidates_full_names']
-
-                self.file2_records.append(candidate_record)
 
         # For File 2: Create one record per candidate
         for cand_key in unique_candidates:
             cand_data = None
             if isinstance(cand_key, int):
-                cand_data = self.ready_cats.get(cand_key)
+                cand_data = self.names_dict.get(cand_key)
                 if cand_data:
                     str_candidates.append(cand_data['candidate'])
 
@@ -483,16 +455,17 @@ class ExportAds:
                     f"algo está mal con cand_data, cand_key {cand_key}")
             str_candidates.append(cand_data['candidate'])
             oej_id = cand_data.get('oej_id')
+            level = cand_data.get('level', 'unknown')
             candidate_record = record.copy()
-            if not oej_id:
+            if not oej_id and level != 'local':
                 default_dict = {}
                 for _, plural_field in self.concat_fields:
                     default_dict[plural_field] = set()
                 self.other_candidates.setdefault(
-                    candidate_name, default_dict)
+                    cand_key, default_dict)
                 for field, plural in self.concat_fields:
                     if field in candidate_record:
-                        self.other_candidates[candidate_name][plural].add(
+                        self.other_candidates[cand_key][plural].add(
                             candidate_record[field])
             # candidate_name = candidate_name.strip()
             candidate_record.update(cand_data)
@@ -534,14 +507,16 @@ class ExportAds:
         len_candidates = len(candidate_full_names)
         record['quantity'] = len_candidates
         spend_lower_bound = record.get('spend_lower_bound', 0)
-        spend_upper_bound = record.get('spend_upper_bound', 0)
+        spend_lower_bound = int(spend_lower_bound)
+        spend_upper_bound = record.get('spend_upper_bound', spend_lower_bound)
+        spend_upper_bound = int(spend_upper_bound)
         currency = record.get('currency', 'MXN')
         if currency == 'USD':
             spend_lower_bound *= 20
             spend_upper_bound *= 20
             record['currency'] = 'MXN'
-            record['spend_lower_bound'] = spend_lower_bound
-            record['spend_upper_bound'] = spend_upper_bound
+        record['spend_lower_bound'] = spend_lower_bound
+        record['spend_upper_bound'] = spend_upper_bound
         if len_candidates > 1:
             spend_lower_bound = int(spend_lower_bound)
             spend_upper_bound = int(spend_upper_bound)
@@ -716,24 +691,76 @@ class ExportAds:
         df_candidates = pd.DataFrame(candidate_records)
         return df_candidates
 
-    def get_best_match(self, title, candidates):
-        from difflib import SequenceMatcher as Matcher
-        title = title.replace("La Jornada_", "")
+    def build_final_table(self):
+        from oej.models import Position
+        final_table = {}
+        other_positions = [
+            "Magistraturas del Tribunal de Disciplina Judicial",
+            "Locales del Poder Judicial",
+        ]
+        basic_fields = [
+            "oej_id",
+            "ine_id",
+            "candidate",
+            "level",
+            "real_position",
+            "circunscription",
+            "circuit",
+            "state",
+            "location_details",
+            "specialty",
+        ]
+        valid_categories = [
+            "info", "multitopic", "negative_campaign", "news", "other_topic",
+            "positive_campaign", "unknown"]
+        bounds = [
+            "spend_lower_bound",
+            "spend_upper_bound",
+            "spend_lower",
+            "spend_upper",
+            "impressions_lower_bound",
+            "impressions_upper_bound",
+        ]
 
-        best_matchs = [
-            (Matcher(None, title, cand.full_name_normalized).ratio(), cand)
-            for cand in candidates]
+        positions = Position.objects.all().values_list('full_name', flat=True)
+        for row in self.file2_records:
+            if not row.get('candidate'):
+                continue
+            real_position = row.get('real_position', '')
+            if real_position in other_positions:
+                pass
+            elif real_position in positions:
+                pass
+            else:
+                continue
+            category = row.get('category', '')
+            if category not in valid_categories:
+                continue
+            candidate_name = row['candidate']
+            # final_table.setdefault(candidate_name, {})
+            if candidate_name not in final_table:
+                base = {}
+                for field in basic_fields:
+                    base[field] = row.get(field, '')
+                for field in valid_categories:
+                    base[field] = 0
+                for field in bounds:
+                    base[field] = 0
+                final_table[candidate_name] = base
+            final_table[candidate_name][category] += 1
+            for field in bounds:
+                value = row.get(field, 0)
+                value = int(value)
+                final_table[candidate_name][field] += value
+        valid_table = []
+        for cand_data in final_table.values():
+            positive_campaign = cand_data.get('positive_campaign', 0)
+            if positive_campaign > 0:
+                valid_table.append(cand_data)
+        df_final = pd.DataFrame(valid_table)
+        return df_final
 
-        if not best_matchs:
-            return None
-
-        best_matchs.sort(key=lambda x: x[0], reverse=True)
-        if best_matchs[0][0] > 0.9:
-            return best_matchs[0][1]
-
-
-
-    def export_to_excel(self, df1, df2, df3, output_dir='.'):
+    def export_to_excel(self, df1, df2, df3, df4, output_dir='.'):
         """
         Export the dataframes to Excel files.
 
@@ -746,18 +773,57 @@ class ExportAds:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # columns_to_export = [
+        #     'id', 'page_id', 'ad_delivery_start_time', 'ad_delivery_stop_time',
+        #     'period', 'is_survey', 'ad_snapshot_url', 'bylines',
+        #     'page_name', 'candidate',
+        #     'real_position', 'currency', 'category', 'state',
+        #     'location_details', 'specialty', 'vote_promotion',
+        #     'ad_creative_bodies', 'ad_creative_link_captions',
+        #     'ad_creative_link_descriptions', 'ad_creative_link_titles',
+        #     'keywords', 'estimated_audience_size_lower_bound',
+        #     'estimated_audience_size_upper_bound', 'impressions_lower_bound',
+        #     'impressions_upper_bound', 'spend_lower_bound', 'spend_upper_bound',
+        #     'quantity', 'spend_lower', 'spend_upper'
+        # ]
+
         columns_to_export = [
-            'id', 'page_id', 'ad_delivery_start_time', 'ad_delivery_stop_time',
-            'period', 'is_survey', 'ad_snapshot_url', 'bylines',
-            'page_name', 'candidate',
-            'real_position', 'currency', 'category', 'state',
-            'location_details', 'specialty', 'vote_promotion',
-            'ad_creative_bodies', 'ad_creative_link_captions',
-            'ad_creative_link_descriptions', 'ad_creative_link_titles',
-            'keywords', 'estimated_audience_size_lower_bound',
-            'estimated_audience_size_upper_bound', 'impressions_lower_bound',
-            'impressions_upper_bound', 'spend_lower_bound', 'spend_upper_bound',
-            'quantity', 'spend_lower', 'spend_upper'
+            "id",
+            "ad_delivery_start_time",
+            "ad_delivery_stop_time",
+            "period",
+            "ad_snapshot_url",
+            "page_id",
+            "page_name",
+            "bylines",
+            "oej_id",
+            "ine_id",
+            "candidate",
+            "level",
+            "real_position",
+            "circunscription",
+            "circuit",
+            "state",
+            "location_details",
+            "specialty",
+            "category",
+            "is_survey",
+            "vote_promotion",
+            "ad_creative_bodies",
+            "ad_creative_link_captions",
+            "ad_creative_link_descriptions",
+            "ad_creative_link_titles",
+            "keywords",
+            "estimated_audience_size_lower_bound",
+            "estimated_audience_size_upper_bound",
+            "impressions_lower_bound",
+            "impressions_upper_bound",
+            "currency",
+            "spend_lower_bound",
+            "spend_upper_bound",
+            "quantity",
+            "spend_lower",
+            "spend_upper"
         ]
 
         all_integer_fields = self.integer_fields + self.boolean_fields
@@ -775,19 +841,21 @@ class ExportAds:
 
             return df_export
 
-        # df1_export = prepare_dataframe(df1)
+        df1_export = prepare_dataframe(df1)
         df2_export = prepare_dataframe(df2)
 
         # Export to Excel
-        # file1_path = os.path.join(output_dir, 'meta_ads_file1.xlsx')
-        # file2_path = os.path.join(output_dir, 'meta_ads_file2.xlsx')
+        file1_path = os.path.join(output_dir, 'meta_ads_file1.xlsx')
+        file2_path = os.path.join(output_dir, 'meta_ads_file2.xlsx')
         file_candidates_path = os.path.join(output_dir, 'candidates.xlsx')
 
-        # df1.to_excel(file1_path, index=False)
-        # print(f"File 1 exported to {file1_path} with {len(df1)} records")
-        #
-        # df2_export.to_excel(file2_path, index=False)
-        # print(f"File 2 exported to {file2_path} with {len(df2)} records")
+        df1.to_excel(file1_path, index=False)
+        print(f"File 1 exported to {file1_path} with {len(df1)} records")
+
+        df2_export.to_excel(file2_path, index=False)
+        print(f"File 2 exported to {file2_path} with {len(df2)} records")
 
         df3.to_excel(file_candidates_path, index=False)
         print(f"Candidates exported to {file_candidates_path} with {len(df3)} records")
+
+        df4.to_excel(os.path.join(output_dir, 'final_table.xlsx'), index=False)

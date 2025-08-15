@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import random
 from matplotlib.patches import Patch
 from scipy.stats import zipf
-from oej.models import Seat, Position
+from oej.models import Seat, Position, Candidate
 from geo.models import JudicialElectoralDistrict, Topic, State
 from tqdm import tqdm
 # import Any to type Seat | SeatCase
@@ -56,6 +56,11 @@ class ElectionSimulator:
         self.voters_size = 1000
         self.base_factor = 22
         self.iteration_idx:int = 0
+        self.is_real = False
+
+    def set_real(self):
+        self.is_real = True
+        self.iterations = 1
 
     def simulate_fake_elections(
             self, simulation_type, cases, zipf_param=1.4,
@@ -107,8 +112,9 @@ class ElectionSimulator:
         self.simulation_data = {}
 
         print(f"Starting {position} of jed {jed}")
-        shared_seats = jed.seats \
-            .filter(position=position, shared_offices=1)
+        shared_seats = jed.seats.filter(position=position)
+        if not self.is_real:
+            shared_seats = shared_seats.filter(shared_offices=1)
 
         for seat in shared_seats:
             candidates = seat.candidates.all()
@@ -125,8 +131,14 @@ class ElectionSimulator:
             self.assign_by_equity_rules(
                 min_offices_women, offices_mujeres, iteration_idx)
 
-        self.assign_avg_by_seat(shared_seats)
-        self.save_simulations(shared_seats)
+        if self.is_real:
+            for seat in shared_seats:
+                for candidate in seat.candidates.all():
+                    candidate = self.save_real_winner(candidate)
+                    candidate.save()
+        else:
+            self.assign_avg_by_seat(shared_seats)
+            self.save_simulations(shared_seats)
 
     def calculate_topic_circuit(
             self, position:Position, min_offices_women:int,
@@ -150,13 +162,15 @@ class ElectionSimulator:
 
         # counts = jed.aggregations(position)
         # offices_mujeres = counts["offices_mujeres"]
-        for seat in shared_seats:
-            if seat.has_simulations:
-                continue
-            for iteration_idx in range(self.iterations):
-                self.calculate_seat_winners(seat, iteration_idx)
+        if not self.is_real:
+            for seat in shared_seats:
+                if seat.has_simulations:
+                    continue
+                for iteration_idx in range(self.iterations):
+                    self.calculate_seat_winners(seat, iteration_idx)
 
-        self.save_simulations(shared_seats)
+        if not self.is_real:
+            self.save_simulations(shared_seats)
 
         for iteration_idx in range(self.iterations):
             self.iteration_idx = iteration_idx
@@ -165,29 +179,43 @@ class ElectionSimulator:
                 shared_seats, iteration_idx=iteration_idx, topic=topic,
                 min_offices_women=min_offices_women)
 
-        self.assign_avg_by_seat(shared_seats, only_circuit=True)
-        self.save_simulations(shared_seats)
+        if self.is_real:
+            for seat in shared_seats:
+                for candidate in seat.candidates.all():
+                    candidate = self.save_real_winner(
+                        candidate, only_circuit=True)
+                    candidate.save()
+        else:
+            self.assign_avg_by_seat(shared_seats, only_circuit=True)
+            self.save_simulations(shared_seats)
 
     def build_candidates_data(self, seat:Seat | SeatCase, candidates):
-        if seat.has_simulations:
+        if seat.has_simulations and not self.is_real:
             for candidate in candidates:
                 self.build_candidate_data(seat, candidate)
         else:
             sexes = [('Mujer', 'mujeres'), ('Hombre', 'hombres')]
             for sex, plural in sexes:
                 sex_candidates = candidates.filter(sex=sex)
-                self.generate_full_simulation(
-                    seat, sex_candidates, getattr(seat, f"squares_{plural}"))
+                squares = getattr(seat, f"squares_{plural}")
+                self.generate_full_simulation(seat, sex_candidates, squares)
 
     def build_candidate_data(
-            self, seat:Seat | SeatCase, candidate=None,
+            self, seat:Seat | SeatCase, candidate:Candidate = None,
             fake_id=None, votes=None):
 
         if candidate:
             is_man = candidate.sex == 'Hombre'
             id_ine = candidate.id_ine
             sex = candidate.sex
-            if votes:
+            if self.is_real:
+                simulate = [{
+                    "votes": candidate.final_votes,
+                    "init_winner": candidate.real_winner or False,
+                    "final_winner": candidate.real_winner_final or False,
+                    "circuit_winner": candidate.real_winner_circuit or False,
+                }]
+            elif votes:
                 simulate = [
                     {
                         "votes": votes_count,
@@ -214,7 +242,8 @@ class ElectionSimulator:
             topic = None
         self.simulation_data[id_ine] = {
             "init_winner": init_winner,
-            "final_winner": final_winner, "circuit_winner": circuit_winner,
+            "final_winner": final_winner,
+            "circuit_winner": circuit_winner,
             "sex": sex, "is_man": is_man,
             "seat": seat.id,
             "topic": topic,
@@ -280,8 +309,9 @@ class ElectionSimulator:
                and candidate["simulate"][iter_idx]["init_winner"]]
         men_winners_seat_ids = {
             candidate["seat"] for candidate in men_winners}
+        #         min_offices_women - offices_mujeres - len(women_winners))
         pending_women = (
-                min_offices_women - offices_mujeres - len(women_winners))
+                min_offices_women - len(women_winners))
 
         if pending_women <= 0:
             return
@@ -370,7 +400,7 @@ class ElectionSimulator:
                 cand_id = candidate["id"]
                 self.simulation_data[cand_id]["circuit_winner"] += 1
                 self.simulation_data[cand_id]["circuit_forced"] += 1
-                self.simulation_data[cand_id]["simulate"][iteration_idx]["circuit_winner"] = False
+                self.simulation_data[cand_id]["simulate"][iteration_idx]["circuit_winner"] = True
                 moved += 1
                 # if pending_women >= len(new_seat_ids):
                 #     break
@@ -571,7 +601,11 @@ class ElectionSimulator:
     def generate_full_simulation(self, seat, candidates, squares):
         candidates_count = len(candidates)
         key = f"{candidates_count}-in-{squares}"
-        if key in self.simulation_by_real:
+        if self.is_real:
+            votes = { candidate: candidate.final_votes
+                      for candidate in candidates }
+            final_votes = [votes.values()]
+        elif key in self.simulation_by_real:
             saved_votes = self.simulation_by_real[key]
             final_votes = random.sample(saved_votes, len(saved_votes))
         else:
@@ -769,3 +803,20 @@ class ElectionSimulator:
                     .update(**{field_base: avg})
         # seat.save()
         return seat
+
+    def save_real_winner(self, candidate:Candidate, only_circuit=False):
+        # fields = ["init_winner", "final_winner", "forced"]
+        base_fields = [
+            ("init_winner", "real_winner"),
+            ("final_winner", "real_winner_final"),
+            ("circuit_winner", "real_winner_circuit"),
+        ]
+        if only_circuit:
+            base_fields = [("circuit_winner", "real_winner_circuit")]
+
+        values = self.simulation_data[candidate.id_ine]
+        for attr, field_base in base_fields:
+            is_winner = values[attr] > 0
+            setattr(candidate, field_base, is_winner)
+        return candidate
+

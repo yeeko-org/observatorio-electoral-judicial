@@ -187,6 +187,7 @@ def exports():
     export.count_by_district()
     export.export_seats()
     export.export_candidates()
+    export.export_nal_candidates()
 
 
 def main():
@@ -200,11 +201,42 @@ def main():
     research.post_gender_by_circuit()
 
 
+def set_real_votes():
+    from oej.ballots.find_cases import ResearchCases
+    from oej.votes.load_votes import VoteLoader
+    loader = VoteLoader()
+    loader.load_positions()
+
+    research = ResearchCases()
+    research.pre_load()
+    research.load_districts()
+    research.calc_real_votes()
+    research.calc_real_dis_votes()
+
+def help_test():
+    from oej.models import Seat, Position, JudicialElectoralDistrict
+    from oej.ballots.find_cases import ResearchCases
+    from geo.models import State, Topic
+    research = ResearchCases()
+    pos = Position.objects.get(acronym="mmtcca")
+    topic_obj = Topic.objects.get(name="MIXTO")
+    state = State.objects.get(inegi_code="09")
+    min_offices_women = 2
+    research.simulator.calculate_topic_circuit(
+        pos, min_offices_women, state, topic_obj)
+    topic = topic_obj
+    position = pos
+    self = research.simulator
+    # shared_seats.count()
+
+
+
 def main_by_circuit():
     from oej.ballots.find_cases import ResearchCases
     research = ResearchCases()
     research.pre_load()
     research.load_districts()
+    research.post_gender_equity()
     research.post_gender_by_circuit()
 
 

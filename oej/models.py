@@ -1,7 +1,7 @@
 from django.db import models
 from geo.models import (
     State, Body, Power, Circunscription, JudicialElectoralDistrict, Topic,
-    Anomaly)
+    Anomaly, PollingPlace)
 from utils.common import text_normalizer
 from django.core.files.base import ContentFile
 from profile_auth.models import User
@@ -178,6 +178,15 @@ class Seat(models.Model):
         max_digits=6, decimal_places=3, default=0,
         verbose_name='Prob. de que por paridad las mujeres sean elegidas')
 
+    null_votes_hombres = models.IntegerField(
+        default=0, verbose_name='Votos nulos de hombres')
+    null_votes_mujeres = models.IntegerField(
+        default=0, verbose_name='Votos nulos de mujeres')
+    voted_people = models.IntegerField(
+        default=0, verbose_name='Número de personas que votaron')
+    nominal_list = models.IntegerField(
+        default=0, verbose_name='Número de personas en la lista nominal')
+
     probability_hombres = models.DecimalField(
         max_digits=6, decimal_places=3, default=0,
         verbose_name='Probabilidad de hombres')
@@ -253,6 +262,26 @@ class Seat(models.Model):
     class Meta:
         verbose_name = 'Escaño'
         verbose_name_plural = 'Escaños'
+
+
+class PollingPlaceSeat(models.Model):
+    polling_place = models.ForeignKey(
+        PollingPlace, on_delete=models.CASCADE, related_name='seats')
+    seat = models.ForeignKey(
+        Seat, on_delete=models.CASCADE, related_name='polling_places')
+    null_votes_hombres = models.IntegerField(
+        default=0, verbose_name='Votos nulos para hombres')
+    null_votes_mujeres = models.IntegerField(
+        default=0, verbose_name='Votos nulos para mujeres')
+    voted_people = models.IntegerField(
+        default=0, verbose_name='Número de personas que votaron')
+
+    def __str__(self):
+        return f"{self.polling_place} - {self.seat}"
+
+    class Meta:
+        verbose_name = 'Escaño de Casilla'
+        verbose_name_plural = 'Escaños de Casilla'
 
 
 class Candidate(models.Model):
@@ -357,6 +386,27 @@ class Candidate(models.Model):
     circuit_probability = models.DecimalField(
         max_digits=6, decimal_places=3, blank=True, null=True,
         verbose_name='Última probabilidad de ser candidato')
+
+    final_votes = models.IntegerField(
+        blank=True, null=True, verbose_name='Votos finales')
+    real_winner = models.BooleanField(
+        blank=True, null=True, verbose_name='Ganador real (init)')
+    real_winner_final = models.BooleanField(
+        blank=True, null=True, verbose_name='Ganador real (1ra)')
+    real_winner_circuit = models.BooleanField(
+        blank=True, null=True, verbose_name='Ganador real (último)')
+
+    total_ads = models.IntegerField(
+        blank=True, null=True,
+        verbose_name='Número total de anuncios')
+    spend_lower = models.IntegerField(
+        blank=True, null=True,
+        verbose_name='Gasto mínimo estimado')
+    spend_upper = models.IntegerField(
+        blank=True, null=True,
+        verbose_name='Gasto máximo estimado')
+
+
 
     @property
     def position(self):
@@ -489,6 +539,23 @@ class Candidate(models.Model):
     class Meta:
         verbose_name = 'Candidato'
         verbose_name_plural = 'Candidatos'
+
+
+class Vote(models.Model):
+    polling_place = models.ForeignKey(
+        PollingPlace, on_delete=models.CASCADE, related_name='votes',
+        verbose_name="Casilla")
+    candidate = models.ForeignKey(
+        'Candidate', on_delete=models.CASCADE, related_name='votes',
+        verbose_name="Candidato")
+    votes = models.IntegerField(default=0, verbose_name="Votos")
+
+    def __str__(self):
+        return f'{self.polling_place} - {self.candidate}'
+
+    class Meta:
+        verbose_name = 'Voto'
+        verbose_name_plural = 'Votos'
 
 
 class SimulationSeat(models.Model):

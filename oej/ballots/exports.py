@@ -9,11 +9,16 @@ class ExportCandidates:
 
     def export_csv(self, file_path, data):
         import csv
-        with open(file_path, 'w', newline='', encoding='latin-1') as csv_file:
-            fieldnames = data[0].keys()
-            writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter='|')
-            writer.writeheader()
-            writer.writerows(data)
+        try:
+            with open(file_path, 'w', newline='', encoding='latin-1') as csv_file:
+                fieldnames = data[0].keys()
+                writer = csv.DictWriter(csv_file, fieldnames=fieldnames, delimiter='|')
+                writer.writeheader()
+                writer.writerows(data)
+        except Exception as e:
+            print(f"Error exporting to {file_path}: {e}")
+            print("Data to export:", data)
+            raise e
 
     def count_by_district(self):
         from geo.models import JudicialElectoralDistrict, State
@@ -111,7 +116,7 @@ class ExportCandidates:
         from oej.ballots.counters import find_range
 
         self.measures_by_circuit()
-        candidates = Candidate.objects.filter(seat__position_id__gt=4)\
+        candidates = Candidate.objects.filter(seat__position__by_circuit=True)\
             .select_related('seat__judicial_district__state',
                             'seat__topic', 'seat__position',
                             'seat__judicial_district')\
@@ -131,10 +136,19 @@ class ExportCandidates:
             }
             seat.pop('probability_mujeres')
             seat.pop('probability_hombres')
+            seat.pop('selected_mujeres')
+            seat.pop('selected_hombres')
+            seat.pop('final_selected_mujeres')
+            seat.pop('final_selected_hombres')
+            seat.pop('circuit_selected_mujeres')
+            seat.pop('circuit_selected_hombres')
             seat.pop('final_probability_mujeres')
             seat.pop('final_probability_hombres')
             seat.pop('circuit_probability_mujeres')
             seat.pop('circuit_probability_hombres')
+            candidate['real_winner'] = 1 if candidate['real_winner'] else 0
+            candidate['real_winner_final'] = 1 if candidate['real_winner_final'] else 0
+            candidate['real_winner_circuit'] = 1 if candidate['real_winner_circuit'] else 0
             new_item.update(candidate)
             new_item.update(seat)
             cand_prob = candidate['circuit_probability']
@@ -148,6 +162,31 @@ class ExportCandidates:
                 print(f"Key not found: {key}")
             new_data.append(new_item)
         self.export_csv('fixture/candidates.csv', new_data)
+
+    def export_nal_candidates(self):
+        from api.views.export.serializers import CandidateNalExportSerializer
+        from oej.ballots.counters import find_range
+
+        self.measures_by_circuit()
+        candidates = Candidate.objects.filter(seat__position__by_circuit=False)\
+            .select_related('seat__position')\
+            .order_by('seat_id', 'num_list')
+        serializer = CandidateNalExportSerializer(candidates, many=True)
+        data = serializer.data
+        new_data = []
+        for candidate in data:
+            seat = candidate.pop('seat')
+            position_name = seat.pop('position_name')
+            circunscription = seat.pop('circunscription')
+            new_item = {
+                'seat_id': seat.pop('seat_id'),
+                'circunscription': circunscription,
+                'position_name': position_name,
+            }
+            new_item.update(candidate)
+            new_item.update(seat)
+            new_data.append(new_item)
+        self.export_csv('fixture/nal_candidates.csv', new_data)
 
 
     def count_by_candidate(self):
@@ -177,3 +216,81 @@ class ExportCandidates:
                             'judicial_district')
         serializer = SeatExportSerializer(seats, many=True)
         self.export_csv('fixture/easy_seats.csv', serializer.data)
+
+
+def test_combos():
+    import math
+    for i in range(1, 8):
+        print(f"{i} - {math.comb(8, i)}")
+
+
+def suma_consecutivos(n):
+    return n * (n + 1) // 2
+
+def sum_again(comb, n, total=0, loop=None, real_n=None):
+    if loop is None:
+        pass
+    real_comb = comb - 3
+    current_range = real_comb
+    if not real_n:
+        real_n = n + 1 - comb
+    else:
+        current_range = real_n - comb + 1
+    for j in range(1, current_range + 1):
+        total += sum_again(comb - j, n, total, loop=loop, real_n=real_n)
+        # for i in range(1, real_n + 1):
+        #     count = suma_consecutivos(i)
+        #     total += count
+    return total
+
+def test_sum_again():
+    total = sum_again(4, 40)
+    print(f"Total sum of consecutive numbers: {total}")
+
+    total = sum_again(5, 40)
+    print(f"Total sum of consecutive numbers: {total}")
+
+
+
+def contar_combinaciones_formula(n, x):
+    """
+    Versión optimizada usando fórmula matemática.
+    Equivale a calcular C(x-n-1, n-1) usando el teorema de stars and bars.
+    """
+    from math import comb
+
+    # Verificar si es posible
+    if x < n * 2:
+        return 0
+
+    # Transformamos el problema: si cada número debe ser ≥ 2,
+    # podemos restar 2 de cada posición y buscar combinaciones ≥ 0
+    # que sumen x - 2n
+    return comb(x - n, n - 1)
+
+
+
+# Ejemplos de uso y verificación
+if __name__ == "__main__":
+    # Casos de prueba
+    casos = [
+        (3, 40),
+        (4, 40),
+        (5, 40),
+        (6, 40),
+        (7, 40),
+        (8, 40),
+        (8, 50),
+        (10, 50),
+        (12, 50),
+        (8, 100),
+        (10, 100),
+        (12, 100),
+    ]
+
+    print("n\tx\tRecursivo\tFórmula")
+    print("-" * 40)
+
+    for n, x in casos:
+        resultado_rec = contar_combinaciones_formula(n, x)
+        print(f"{n}\t{x}\t{resultado_rec}")
